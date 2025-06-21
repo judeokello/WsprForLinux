@@ -1,0 +1,31 @@
+# W4L (Wispr for Linux) - Production Dependencies
+# Core application dependencies
+
+# GUI Framework
+PyQt5==5.15.9
+
+# Audio Processing
+sounddevice==0.4.6
+numpy==1.24.4
+
+# Audio Visualization
+pyqtgraph==0.13.3
+
+# Speech-to-Text
+openai-whisper==20231117
+
+# System Integration
+keyboard==0.13.5
+pyautogui==0.9.54
+python-xlib==0.33
+
+# Audio Processing (additional)
+scipy==1.11.4
+librosa==0.10.1
+
+# Configuration and Utilities
+python-dotenv==1.0.0
+pathlib2==2.3.7
+
+# Note: python-evdev removed due to compatibility issues
+# Will be installed via system package manager if needed 
