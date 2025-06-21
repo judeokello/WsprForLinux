@@ -23,6 +23,29 @@
 
 ---
 
+## 🔧 Linter & IDE Configuration
+
+### **Import Resolution Setup**
+- **ALWAYS** maintain `pyproject.toml` for modern Python tooling configuration
+- **ALWAYS** keep `tests/conftest.py` for pytest import path setup
+- **ALWAYS** maintain `.vscode/settings.json` for VS Code Python path configuration
+- **ALWAYS** keep `setup.py` for legacy tool compatibility
+- **NEVER** modify import statements to work around linter errors
+
+### **Configuration Files**
+- **`pyproject.toml`**: Configure pytest, black, flake8, and mypy settings
+- **`tests/conftest.py`**: Set up Python path for test imports
+- **`.vscode/settings.json`**: Configure IDE Python analysis paths
+- **`setup.py`**: Provide package configuration for older tools
+
+### **Linter Error Resolution**
+- **ALWAYS** fix import errors by updating configuration, not import statements
+- **ALWAYS** ensure `src/` directory is in Python path for all tools
+- **ALWAYS** test that both linter and runtime imports work correctly
+- **NEVER** use `PYTHONPATH` environment variable in production code
+
+---
+
 ## 🏗️ Module Development Standards
 
 ### **Module Responsibilities**
@@ -190,4 +213,34 @@ Before beginning any development:
 - [ ] Check that no structural violations exist
 - [ ] Confirm progress tracking is current
 
-**Remember**: These rules ensure consistent, maintainable, and scalable code. Following them strictly will make the development process smoother and the final product more robust. 
+**Remember**: These rules ensure consistent, maintainable, and scalable code. Following them strictly will make the development process smoother and the final product more robust.
+
+## Code Organization
+- Keep all source code in `src/` directory
+- Use modular structure with clear separation of concerns
+- Maintain consistent naming conventions (snake_case for Python)
+- Add proper docstrings and type hints
+
+## Testing
+- Write tests for all new functionality
+- Use pytest for testing framework
+- Place tests in `tests/` directory mirroring the src structure
+- Use `tests/conftest.py` for proper import resolution (no need for PYTHONPATH)
+- Run tests with `pytest tests/` from project root
+
+## Import Resolution
+- The `tests/conftest.py` file automatically adds `src/` to Python path
+- This allows tests to import modules directly without environment variables
+- Linter errors for imports in test files are resolved by this configuration
+- No need to use `PYTHONPATH=src pytest` anymore
+
+## Package Management
+- Always install missing packages automatically and add them to requirements.txt or requirements-dev.txt
+- Set up a project hook (e.g., project cursor rule) to enforce this process whenever adding a new package
+- Keep requirements files up to date with exact versions
+
+## Documentation
+- Maintain and update a single devplan.md file for project management
+- Avoid creating duplicate planning files
+- Update progress tracking regularly
+- Document any architectural decisions or important implementation details 

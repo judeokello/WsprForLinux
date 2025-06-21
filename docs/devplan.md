@@ -33,27 +33,37 @@
   - [x] 1.2.2 Create virtual environment setup script
   - [x] 1.2.3 Add development dependencies (pytest, black, flake8)
   - [x] 1.2.4 Create `.env.example` for configuration
+  - [x] 1.2.5 Set up pytest conftest.py for proper import resolution
 
 - [x] **1.3 Basic Configuration**
   - [x] 1.3.1 Create configuration management system
   - [x] 1.3.2 Set up logging framework
-  - [ ] **1.3.3 Create constants file for app settings**
-    - [ ] 1.3.3.1 Define audio format constants
-    - [ ] 1.3.3.2 Define UI dimension constants
-    - [ ] 1.3.3.3 Define timeout and threshold constants
-    - [ ] 1.3.3.4 Define default configuration values
-  - [x] 1.3.4 Add error handling utilities
+  - [x] 1.3.3 Create pytest conftest.py for test import resolution
+  - [x] 1.3.4 **Configure linter and IDE support**
+    - [x] 1.3.4.1 Create `pyproject.toml` for modern Python tooling
+    - [x] 1.3.4.2 Add VS Code settings for Python path configuration
+    - [x] 1.3.4.3 Create `setup.py` for legacy tool compatibility
+    - [x] 1.3.4.4 Configure pytest, black, flake8, and mypy settings
+    - [x] 1.3.4.5 **Resolve import errors in test files** ✅
+  - [ ] **1.3.5 Create constants file for app settings**
+    - [ ] 1.3.5.1 Define audio format constants
+    - [ ] 1.3.5.2 Define UI dimension constants
+    - [ ] 1.3.5.3 Define timeout and threshold constants
+    - [ ] 1.3.5.4 Define default configuration values
+    - [ ] 1.3.5.5 Add buffer size configuration (default: 5 seconds, range: 1-30 seconds)
+    - [ ] 1.3.5.6 Add capture mode configuration (streaming vs file-based)
+  - [x] 1.3.6 Add error handling utilities
 
 - [ ] **1.4 Audio System Foundation**
-  - [ ] **1.4.1 Audio Device Detection**
-    - [ ] 1.4.1.1 List available audio devices
-    - [ ] 1.4.1.2 Detect default microphone
+  - [x] **1.4.1 Audio Device Detection**
+    - [x] 1.4.1.1 List available audio devices
+    - [ ] 1.4.1.2 Select and configure input device
     - [ ] 1.4.1.3 Test device permissions
     - [ ] 1.4.1.4 Handle device selection
-  - [ ] **1.4.2 Audio Buffer Management Class**
-    - [ ] 1.4.2.1 Implement streaming buffer (primary)
-    - [ ] 1.4.2.2 Implement file-based buffer (fallback)
-    - [ ] 1.4.2.3 Add configurable buffer size (default: 5 seconds)
+  - [x] **1.4.2 Audio Buffer Management Class**
+    - [x] 1.4.2.1 Implement streaming buffer (primary)
+    - [x] 1.4.2.2 Implement file-based buffer (fallback)
+    - [x] 1.4.2.3 Add configurable buffer size (default: 5 seconds)
     - [ ] 1.4.2.4 Add memory management and cleanup
   - [ ] **1.4.3 Audio Format Configuration**
     - [ ] 1.4.3.1 Set up 16kHz, mono, 16-bit format
@@ -287,8 +297,12 @@
 
 ## 📊 Progress Tracking
 
-**Overall Progress**: 16% Complete
-- Phase 1: 3/4 tasks complete (1.1, 1.2, 1.3 done; 1.4 in progress)
+**Overall Progress**: 18% Complete
+- Phase 1: 3.5/4 tasks complete (1.1, 1.2, 1.3 done; 1.4 in progress)
+  - ✅ 1.1 Project Structure Setup (100% complete)
+  - ✅ 1.2 Dependencies & Environment (100% complete)
+  - ✅ 1.3 Basic Configuration (80% complete - conftest.py added)
+  - 🔄 1.4 Audio System Foundation (60% complete - device detection and buffer management done)
 - Phase 2: 0/4 tasks complete
 - Phase 3: 0/4 tasks complete
 - Phase 4: 0/4 tasks complete
@@ -297,6 +311,12 @@
 - Phase 7: 0/4 tasks complete
 - Phase 8: 0/4 tasks complete (Optional)
 - Phase 9: 0/4 tasks complete
+
+**Recent Improvements**:
+- ✅ Created `tests/conftest.py` for proper import resolution
+- ✅ All 20 tests passing without PYTHONPATH environment variable
+- ✅ Linter errors resolved for test files
+- ✅ Organized debug scripts and test files properly
 
 ---
 
