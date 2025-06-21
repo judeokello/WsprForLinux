@@ -22,253 +22,273 @@
 **Goal**: Establish project structure and basic dependencies
 
 - [x] **1.1 Project Structure Setup**
-  - [x] Create main application directory structure
-  - [x] Set up `src/` folder with modules
-  - [x] Create `tests/` directory
-  - [x] Set up `resources/` for assets
-  - [x] Initialize `__init__.py` files
+  - [x] 1.1.1 Create main application directory structure
+  - [x] 1.1.2 Set up `src/` folder with modules
+  - [x] 1.1.3 Create `tests/` directory
+  - [x] 1.1.4 Set up `resources/` for assets
+  - [x] 1.1.5 Initialize `__init__.py` files
 
 - [x] **1.2 Dependencies & Environment**
-  - [x] Update `requirements.txt` with all necessary packages
-  - [x] Create virtual environment setup script
-  - [x] Add development dependencies (pytest, black, flake8)
-  - [x] Create `.env.example` for configuration
+  - [x] 1.2.1 Update `requirements.txt` with all necessary packages
+  - [x] 1.2.2 Create virtual environment setup script
+  - [x] 1.2.3 Add development dependencies (pytest, black, flake8)
+  - [x] 1.2.4 Create `.env.example` for configuration
 
 - [x] **1.3 Basic Configuration**
-  - [x] Create configuration management system
-  - [x] Set up logging framework
-  - [ ] Create constants file for app settings
-  - [x] Add error handling utilities
+  - [x] 1.3.1 Create configuration management system
+  - [x] 1.3.2 Set up logging framework
+  - [ ] **1.3.3 Create constants file for app settings**
+    - [ ] 1.3.3.1 Define audio format constants
+    - [ ] 1.3.3.2 Define UI dimension constants
+    - [ ] 1.3.3.3 Define timeout and threshold constants
+    - [ ] 1.3.3.4 Define default configuration values
+  - [x] 1.3.4 Add error handling utilities
 
 - [ ] **1.4 Audio System Foundation**
-  - [ ] Implement basic audio device detection
-  - [ ] Create audio buffer management class
-  - [ ] Set up audio format configuration
-  - [ ] Test microphone access and permissions
+  - [ ] **1.4.1 Audio Device Detection**
+    - [ ] 1.4.1.1 List available audio devices
+    - [ ] 1.4.1.2 Detect default microphone
+    - [ ] 1.4.1.3 Test device permissions
+    - [ ] 1.4.1.4 Handle device selection
+  - [ ] **1.4.2 Audio Buffer Management Class**
+    - [ ] 1.4.2.1 Implement streaming buffer (primary)
+    - [ ] 1.4.2.2 Implement file-based buffer (fallback)
+    - [ ] 1.4.2.3 Add configurable buffer size (default: 5 seconds)
+    - [ ] 1.4.2.4 Add memory management and cleanup
+  - [ ] **1.4.3 Audio Format Configuration**
+    - [ ] 1.4.3.1 Set up 16kHz, mono, 16-bit format
+    - [ ] 1.4.3.2 Configure chunk sizes
+    - [ ] 1.4.3.3 Add format validation
+    - [ ] 1.4.3.4 Handle format conversion
+  - [ ] **1.4.4 Microphone Access & Testing**
+    - [ ] 1.4.4.1 Test microphone permissions
+    - [ ] 1.4.4.2 Verify audio capture works
+    - [ ] 1.4.4.3 Test buffer overflow handling
+    - [ ] 1.4.4.4 Validate both streaming and file modes work
 
 ### Phase 2: GUI Prototype
 **Goal**: Create the minimal dialog interface with waveform visualization
 
 - [ ] **2.1 Basic GUI Framework**
-  - [ ] Create main application window class
-  - [ ] Implement window centering and styling
-  - [ ] Add basic PyQt5 application structure
-  - [ ] Set up window properties (always on top, frameless)
+  - [ ] 2.1.1 Create main application window class
+  - [ ] 2.1.2 Implement window centering and styling
+  - [ ] 2.1.3 Add basic PyQt5 application structure
+  - [ ] 2.1.4 Set up window properties (always on top, frameless)
 
 - [ ] **2.2 Waveform Visualization**
-  - [ ] Integrate PyQtGraph for real-time plotting
-  - [ ] Create waveform display widget
-  - [ ] Implement flatline display (before recording)
-  - [ ] Add real-time waveform updates during recording
-  - [ ] Style waveform with appropriate colors and scaling
+  - [ ] 2.2.1 Integrate PyQtGraph for real-time plotting
+  - [ ] 2.2.2 Create waveform display widget
+  - [ ] 2.2.3 Implement flatline display (before recording)
+  - [ ] 2.2.4 Add real-time waveform updates during recording
+  - [ ] 2.2.5 Style waveform with appropriate colors and scaling
 
 - [ ] **2.3 UI Elements**
-  - [ ] Add instruction label: "Speak now... Press ESC to cancel or Enter to finish early"
-  - [ ] Implement status indicators
-  - [ ] Add recording state visual feedback
-  - [ ] Create loading/processing indicators
+  - [ ] 2.3.1 Add instruction label: "Speak now... Press ESC to cancel or Enter to finish early"
+  - [ ] 2.3.2 Implement status indicators
+  - [ ] 2.3.3 Add recording state visual feedback
+  - [ ] 2.3.4 Create loading/processing indicators
 
 - [ ] **2.4 Window Management**
-  - [ ] Implement window show/hide functionality
-  - [ ] Add window positioning (center screen)
-  - [ ] Set up window focus management
-  - [ ] Test window behavior across different Linux DEs
+  - [ ] 2.4.1 Implement window show/hide functionality
+  - [ ] 2.4.2 Add window positioning (center screen)
+  - [ ] 2.4.3 Set up window focus management
+  - [ ] 2.4.4 Test window behavior across different Linux DEs
 
 ### Phase 3: Audio Recording & Processing
 **Goal**: Implement audio capture with silence detection and key controls
 
 - [ ] **3.1 Audio Recording System**
-  - [ ] Implement real-time audio capture with sounddevice
-  - [ ] Create audio stream management
-  - [ ] Set up proper audio format (16kHz, mono, 16-bit)
-  - [ ] Add audio buffer handling and overflow protection
+  - [ ] 3.1.1 Implement real-time audio capture with sounddevice
+  - [ ] 3.1.2 Create audio stream management
+  - [ ] 3.1.3 Set up proper audio format (16kHz, mono, 16-bit)
+  - [ ] 3.1.4 Add audio buffer handling and overflow protection
 
 - [ ] **3.2 Silence Detection**
-  - [ ] Implement RMS-based silence detection algorithm
-  - [ ] Create configurable silence threshold settings
-  - [ ] Add silence duration tracking (5-second auto-stop)
-  - [ ] Test silence detection accuracy
+  - [ ] 3.2.1 Implement RMS-based silence detection algorithm
+  - [ ] 3.2.2 Create configurable silence threshold settings
+  - [ ] 3.2.3 Add silence duration tracking (5-second auto-stop)
+  - [ ] 3.2.4 Test silence detection accuracy
 
 - [ ] **3.3 Key Controls**
-  - [ ] Implement Enter key handling (finish recording early)
-  - [ ] Add Escape key handling (cancel recording)
-  - [ ] Create key event management system
-  - [ ] Test key responsiveness and edge cases
+  - [ ] 3.3.1 Implement Enter key handling (finish recording early)
+  - [ ] 3.3.2 Add Escape key handling (cancel recording)
+  - [ ] 3.3.3 Create key event management system
+  - [ ] 3.3.4 Test key responsiveness and edge cases
 
 - [ ] **3.4 Recording State Management**
-  - [ ] Create recording state machine
-  - [ ] Implement start/stop/pause recording logic
-  - [ ] Add recording duration tracking
-  - [ ] Handle recording errors gracefully
+  - [ ] 3.4.1 Create recording state machine
+  - [ ] 3.4.2 Implement start/stop/pause recording logic
+  - [ ] 3.4.3 Add recording duration tracking
+  - [ ] 3.4.4 Handle recording errors gracefully
 
 ### Phase 4: Whisper Integration & Transcription
 **Goal**: Implement offline speech-to-text using Whisper
 
 - [ ] **4.1 Whisper Setup**
-  - [ ] Integrate OpenAI Whisper library
-  - [ ] Set up model downloading and caching
-  - [ ] Configure for CPU-only inference
-  - [ ] Test model loading and initialization
+  - [ ] 4.1.1 Integrate OpenAI Whisper library
+  - [ ] 4.1.2 Set up model downloading and caching
+  - [ ] 4.1.3 Configure for CPU-only inference
+  - [ ] 4.1.4 Test model loading and initialization
 
 - [ ] **4.2 Audio Preprocessing**
-  - [ ] Implement audio format conversion for Whisper
-  - [ ] Add audio normalization and filtering
-  - [ ] Create audio chunking for long recordings
-  - [ ] Optimize audio processing pipeline
+  - [ ] 4.2.1 Implement audio format conversion for Whisper
+  - [ ] 4.2.2 Add audio normalization and filtering
+  - [ ] 4.2.3 Create audio chunking for long recordings
+  - [ ] 4.2.4 Optimize audio processing pipeline
 
 - [ ] **4.3 Transcription Engine**
-  - [ ] Create transcription service class
-  - [ ] Implement async transcription processing
-  - [ ] Add transcription progress indicators
-  - [ ] Handle transcription errors and timeouts
+  - [ ] 4.3.1 Create transcription service class
+  - [ ] 4.3.2 Implement async transcription processing
+  - [ ] 4.3.3 Add transcription progress indicators
+  - [ ] 4.3.4 Handle transcription errors and timeouts
 
 - [ ] **4.4 Model Optimization**
-  - [ ] Implement model preloading on startup
-  - [ ] Add model caching for faster subsequent use
-  - [ ] Optimize memory usage for Whisper model
-  - [ ] Test transcription accuracy and speed
+  - [ ] 4.4.1 Implement model preloading on startup
+  - [ ] 4.4.2 Add model caching for faster subsequent use
+  - [ ] 4.4.3 Optimize memory usage for Whisper model
+  - [ ] 4.4.4 Test transcription accuracy and speed
 
 ### Phase 5: Auto-Paste Integration
 **Goal**: Automatically paste transcribed text into active applications
 
 - [ ] **5.1 Clipboard Integration**
-  - [ ] Implement clipboard management
-  - [ ] Add text copying to system clipboard
-  - [ ] Test clipboard functionality across Linux DEs
-  - [ ] Handle clipboard permission issues
+  - [ ] 5.1.1 Implement clipboard management
+  - [ ] 5.1.2 Add text copying to system clipboard
+  - [ ] 5.1.3 Test clipboard functionality across Linux DEs
+  - [ ] 5.1.4 Handle clipboard permission issues
 
 - [ ] **5.2 Keyboard Simulation**
-  - [ ] Research and implement keyboard simulation (pyautogui/xdotool)
-  - [ ] Create paste key combination simulation
-  - [ ] Add focus restoration to previous window
-  - [ ] Test with various applications (Cursor, VS Code, etc.)
+  - [ ] 5.2.1 Research and implement keyboard simulation (pyautogui/xdotool)
+  - [ ] 5.2.2 Create paste key combination simulation
+  - [ ] 5.2.3 Add focus restoration to previous window
+  - [ ] 5.2.4 Test with various applications (Cursor, VS Code, etc.)
 
 - [ ] **5.3 Application Detection**
-  - [ ] Implement active window detection
-  - [ ] Add application-specific paste strategies
-  - [ ] Create fallback paste methods
-  - [ ] Test compatibility with different IDEs
+  - [ ] 5.3.1 Implement active window detection
+  - [ ] 5.3.2 Add application-specific paste strategies
+  - [ ] 5.3.3 Create fallback paste methods
+  - [ ] 5.3.4 Test compatibility with different IDEs
 
 - [ ] **5.4 Paste Reliability**
-  - [ ] Add paste confirmation mechanisms
-  - [ ] Implement paste retry logic
-  - [ ] Create paste error handling
-  - [ ] Test paste reliability across different scenarios
+  - [ ] 5.4.1 Add paste confirmation mechanisms
+  - [ ] 5.4.2 Implement paste retry logic
+  - [ ] 5.4.3 Create paste error handling
+  - [ ] 5.4.4 Test paste reliability across different scenarios
 
 ### Phase 6: Global Hotkey Support
 **Goal**: Enable launching W4L from anywhere with keyboard shortcuts
 
 - [ ] **6.1 Hotkey System**
-  - [ ] Implement global hotkey listener (keyboard/pynput)
-  - [ ] Create configurable hotkey settings
-  - [ ] Add hotkey registration and unregistration
-  - [ ] Test hotkey functionality across Linux DEs
+  - [ ] 6.1.1 Implement global hotkey listener (keyboard/pynput)
+  - [ ] 6.1.2 Create configurable hotkey settings
+  - [ ] 6.1.3 Add hotkey registration and unregistration
+  - [ ] 6.1.4 Test hotkey functionality across Linux DEs
 
 - [ ] **6.2 Application Lifecycle**
-  - [ ] Create daemon/service mode for background operation
-  - [ ] Implement application startup and shutdown
-  - [ ] Add system tray integration (optional)
-  - [ ] Handle application persistence
+  - [ ] 6.2.1 Create daemon/service mode for background operation
+  - [ ] 6.2.2 Implement application startup and shutdown
+  - [ ] 6.2.3 Add system tray integration (optional)
+  - [ ] 6.2.4 Handle application persistence
 
 - [ ] **6.3 Hotkey Management**
-  - [ ] Add hotkey conflict detection
-  - [ ] Implement hotkey customization interface
-  - [ ] Create hotkey help/documentation
-  - [ ] Test hotkey behavior with other applications
+  - [ ] 6.3.1 Add hotkey conflict detection
+  - [ ] 6.3.2 Implement hotkey customization interface
+  - [ ] 6.3.3 Create hotkey help/documentation
+  - [ ] 6.3.4 Test hotkey behavior with other applications
 
 - [ ] **6.4 System Integration**
-  - [ ] Create desktop entry for autostart
-  - [ ] Add systemd service file (optional)
-  - [ ] Implement proper signal handling
-  - [ ] Test system integration on different distros
+  - [ ] 6.4.1 Create desktop entry for autostart
+  - [ ] 6.4.2 Add systemd service file (optional)
+  - [ ] 6.4.3 Implement proper signal handling
+  - [ ] 6.4.4 Test system integration on different distros
 
 ### Phase 7: Performance & Polish
 **Goal**: Optimize performance and add final polish
 
 - [ ] **7.1 Performance Optimization**
-  - [ ] Optimize audio processing pipeline
-  - [ ] Implement memory management improvements
-  - [ ] Add CPU usage optimization
-  - [ ] Profile and optimize critical paths
+  - [ ] 7.1.1 Optimize audio processing pipeline
+  - [ ] 7.1.2 Implement memory management improvements
+  - [ ] 7.1.3 Add CPU usage optimization
+  - [ ] 7.1.4 Profile and optimize critical paths
 
 - [ ] **7.2 User Experience**
-  - [ ] Add startup splash screen
-  - [ ] Implement smooth animations and transitions
-  - [ ] Create user feedback mechanisms
-  - [ ] Add accessibility features
+  - [ ] 7.2.1 Add startup splash screen
+  - [ ] 7.2.2 Implement smooth animations and transitions
+  - [ ] 7.2.3 Create user feedback mechanisms
+  - [ ] 7.2.4 Add accessibility features
 
 - [ ] **7.3 Error Handling & Logging**
-  - [ ] Implement comprehensive error handling
-  - [ ] Add detailed logging system
-  - [ ] Create user-friendly error messages
-  - [ ] Add crash reporting (optional)
+  - [ ] 7.3.1 Implement comprehensive error handling
+  - [ ] 7.3.2 Add detailed logging system
+  - [ ] 7.3.3 Create user-friendly error messages
+  - [ ] 7.3.4 Add crash reporting (optional)
 
 - [ ] **7.4 Testing & Quality Assurance**
-  - [ ] Write unit tests for core components
-  - [ ] Add integration tests
-  - [ ] Perform cross-distribution testing
-  - [ ] Conduct user acceptance testing
+  - [ ] 7.4.1 Write unit tests for core components
+  - [ ] 7.4.2 Add integration tests
+  - [ ] 7.4.3 Perform cross-distribution testing
+  - [ ] 7.4.4 Conduct user acceptance testing
 
 ### Phase 8: Advanced Features (Optional)
 **Goal**: Add advanced features for power users
 
 - [ ] **8.1 Streaming Audio**
-  - [ ] Implement real-time streaming transcription
-  - [ ] Add live transcription display
-  - [ ] Create streaming audio buffers
-  - [ ] Optimize for low-latency operation
+  - [ ] 8.1.1 Implement real-time streaming transcription
+  - [ ] 8.1.2 Add live transcription display
+  - [ ] 8.1.3 Create streaming audio buffers
+  - [ ] 8.1.4 Optimize for low-latency operation
 
 - [ ] **8.2 Model Picker**
-  - [ ] Add support for different Whisper models
-  - [ ] Create model selection interface
-  - [ ] Implement model switching functionality
-  - [ ] Add model performance comparison
+  - [ ] 8.2.1 Add support for different Whisper models
+  - [ ] 8.2.2 Create model selection interface
+  - [ ] 8.2.3 Implement model switching functionality
+  - [ ] 8.2.4 Add model performance comparison
 
 - [ ] **8.3 Settings Panel**
-  - [ ] Create comprehensive settings interface
-  - [ ] Add audio device selection
-  - [ ] Implement hotkey customization
-  - [ ] Add transcription language selection
+  - [ ] 8.3.1 Create comprehensive settings interface
+  - [ ] 8.3.2 Add audio device selection
+  - [ ] 8.3.3 Implement hotkey customization
+  - [ ] 8.3.4 Add transcription language selection
 
 - [ ] **8.4 Advanced Audio Features**
-  - [ ] Add noise reduction
-  - [ ] Implement audio level normalization
-  - [ ] Create audio quality settings
-  - [ ] Add microphone calibration
+  - [ ] 8.4.1 Add noise reduction
+  - [ ] 8.4.2 Implement audio level normalization
+  - [ ] 8.4.3 Create audio quality settings
+  - [ ] 8.4.4 Add microphone calibration
 
 ### Phase 9: Deployment & Distribution
 **Goal**: Prepare for distribution and deployment
 
 - [ ] **9.1 Packaging**
-  - [ ] Create AppImage package
-  - [ ] Build .deb package for Debian/Ubuntu
-  - [ ] Create RPM package for Fedora/RHEL
-  - [ ] Add flatpak support (optional)
+  - [ ] 9.1.1 Create AppImage package
+  - [ ] 9.1.2 Build .deb package for Debian/Ubuntu
+  - [ ] 9.1.3 Create RPM package for Fedora/RHEL
+  - [ ] 9.1.4 Add flatpak support (optional)
 
 - [ ] **9.2 Documentation**
-  - [ ] Write comprehensive README
-  - [ ] Create installation guide
-  - [ ] Add troubleshooting documentation
-  - [ ] Create user manual
+  - [ ] 9.2.1 Write comprehensive README
+  - [ ] 9.2.2 Create installation guide
+  - [ ] 9.2.3 Add troubleshooting documentation
+  - [ ] 9.2.4 Create user manual
 
 - [ ] **9.3 CI/CD Pipeline**
-  - [ ] Set up GitHub Actions for automated testing
-  - [ ] Create automated build pipeline
-  - [ ] Add release automation
-  - [ ] Implement automated packaging
+  - [ ] 9.3.1 Set up GitHub Actions for automated testing
+  - [ ] 9.3.2 Create automated build pipeline
+  - [ ] 9.3.3 Add release automation
+  - [ ] 9.3.4 Implement automated packaging
 
 - [ ] **9.4 Distribution**
-  - [ ] Prepare GitHub repository
-  - [ ] Create release notes template
-  - [ ] Set up issue templates
-  - [ ] Add contribution guidelines
+  - [ ] 9.4.1 Prepare GitHub repository
+  - [ ] 9.4.2 Create release notes template
+  - [ ] 9.4.3 Set up issue templates
+  - [ ] 9.4.4 Add contribution guidelines
 
 ---
 
 ## 📊 Progress Tracking
 
 **Overall Progress**: 16% Complete
-- Phase 1: 4/4 tasks complete
+- Phase 1: 3/4 tasks complete (1.1, 1.2, 1.3 done; 1.4 in progress)
 - Phase 2: 0/4 tasks complete
 - Phase 3: 0/4 tasks complete
 - Phase 4: 0/4 tasks complete
