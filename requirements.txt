@@ -27,5 +27,8 @@ librosa==0.10.1
 python-dotenv==1.0.0
 pathlib2==2.3.7
 
+# System Monitoring
+psutil==5.9.6
+
 # Note: python-evdev removed due to compatibility issues
 # Will be installed via system package manager if needed 

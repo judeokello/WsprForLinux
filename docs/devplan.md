@@ -58,13 +58,13 @@
   - [x] **1.4.1 Audio Device Detection**
     - [x] 1.4.1.1 List available audio devices
     - [x] 1.4.1.2 **Select and configure input device** ✅
-    - [ ] 1.4.1.3 Test device permissions
-    - [ ] 1.4.1.4 Handle device selection
+    - [x] 1.4.1.3 **Test device permissions** ✅
+    - [x] 1.4.1.4 **Handle device selection** ✅
   - [x] **1.4.2 Audio Buffer Management Class**
     - [x] 1.4.2.1 Implement streaming buffer (primary)
     - [x] 1.4.2.2 Implement file-based buffer (fallback)
     - [x] 1.4.2.3 Add configurable buffer size (default: 5 seconds)
-    - [ ] 1.4.2.4 Add memory management and cleanup
+    - [x] 1.4.2.4 **Add memory management and cleanup** ✅
   - [x] **1.4.3 Audio Format Configuration** ✅
     - [x] 1.4.3.1 Set up 16kHz, mono, 16-bit format
     - [x] 1.4.3.2 Configure chunk sizes
@@ -157,6 +157,12 @@
   - [ ] 4.4.2 Add model caching for faster subsequent use
   - [ ] 4.4.3 Optimize memory usage for Whisper model
   - [ ] 4.4.4 Test transcription accuracy and speed
+  - [ ] **4.4.5 Model-Aware Memory Management** 🔄
+    - [ ] 4.4.5.1 Implement dynamic memory thresholds based on model size
+    - [ ] 4.4.5.2 Add model memory requirements tracking (tiny: 150MB, base: 250MB, small: 500MB, medium: 1.5GB, large: 2.5GB)
+    - [ ] 4.4.5.3 Create W4LMemoryManager class for adaptive memory management
+    - [ ] 4.4.5.4 Add memory compatibility warnings for large models
+    - [ ] 4.4.5.5 Implement optimal buffer sizing based on available memory
 
 ### Phase 5: Auto-Paste Integration
 **Goal**: Automatically paste transcribed text into active applications
