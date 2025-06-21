@@ -1,0 +1,14 @@
+{
+    "include": [
+        "src",
+        "tests"
+    ],
+    "extraPaths": [
+        "src"
+    ],
+    "pythonVersion": "3.10",
+    "pythonPlatform": "Linux",
+    "typeCheckingMode": "basic",
+    "useLibraryCodeForTypes": true,
+    "autoImportCompletions": true
+} 

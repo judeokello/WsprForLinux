@@ -57,7 +57,7 @@
 - [ ] **1.4 Audio System Foundation**
   - [x] **1.4.1 Audio Device Detection**
     - [x] 1.4.1.1 List available audio devices
-    - [ ] 1.4.1.2 Select and configure input device
+    - [x] 1.4.1.2 **Select and configure input device** ✅
     - [ ] 1.4.1.3 Test device permissions
     - [ ] 1.4.1.4 Handle device selection
   - [x] **1.4.2 Audio Buffer Management Class**
@@ -65,11 +65,11 @@
     - [x] 1.4.2.2 Implement file-based buffer (fallback)
     - [x] 1.4.2.3 Add configurable buffer size (default: 5 seconds)
     - [ ] 1.4.2.4 Add memory management and cleanup
-  - [ ] **1.4.3 Audio Format Configuration**
-    - [ ] 1.4.3.1 Set up 16kHz, mono, 16-bit format
-    - [ ] 1.4.3.2 Configure chunk sizes
-    - [ ] 1.4.3.3 Add format validation
-    - [ ] 1.4.3.4 Handle format conversion
+  - [x] **1.4.3 Audio Format Configuration** ✅
+    - [x] 1.4.3.1 Set up 16kHz, mono, 16-bit format
+    - [x] 1.4.3.2 Configure chunk sizes
+    - [x] 1.4.3.3 Add format validation
+    - [x] 1.4.3.4 Handle format conversion
   - [ ] **1.4.4 Microphone Access & Testing**
     - [ ] 1.4.4.1 Test microphone permissions
     - [ ] 1.4.4.2 Verify audio capture works

@@ -36,13 +36,17 @@
 - **`pyproject.toml`**: Configure pytest, black, flake8, and mypy settings
 - **`tests/conftest.py`**: Set up Python path for test imports
 - **`.vscode/settings.json`**: Configure IDE Python analysis paths
+- **`pyrightconfig.json`**: Configure Python language server for import resolution
 - **`setup.py`**: Provide package configuration for older tools
+- **`.python-version`**: Specify Python version for pyenv projects
 
 ### **Linter Error Resolution**
 - **ALWAYS** fix import errors by updating configuration, not import statements
 - **ALWAYS** ensure `src/` directory is in Python path for all tools
 - **ALWAYS** test that both linter and runtime imports work correctly
 - **NEVER** use `PYTHONPATH` environment variable in production code
+- **NEVER** hardcode usernames in configuration files
+- **ALWAYS** use portable configuration that works across different environments
 
 ---
 
