@@ -77,7 +77,7 @@
     - [x] 1.4.4.4 Validate both streaming and file modes work
 
 ### Phase 2: GUI Prototype
-**Goal**: Create the minimal dialog interface with waveform visualization
+**Goal**: Create the minimal dialog interface with waveform visualization and basic settings
 
 - [ ] **2.1 Basic GUI Framework**
   - [ ] 2.1.1 Create main application window class
@@ -97,12 +97,21 @@
   - [ ] 2.3.2 Implement status indicators
   - [ ] 2.3.3 Add recording state visual feedback
   - [ ] 2.3.4 Create loading/processing indicators
+  - [ ] 2.3.5 Add gear icon for settings access
 
-- [ ] **2.4 Window Management**
-  - [ ] 2.4.1 Implement window show/hide functionality
-  - [ ] 2.4.2 Add window positioning (center screen)
-  - [ ] 2.4.3 Set up window focus management
-  - [ ] 2.4.4 Test window behavior across different Linux DEs
+- [ ] **2.4 Settings Page (MVP)**
+  - [ ] 2.4.1 Create settings dialog window
+  - [ ] 2.4.2 Implement audio format settings (sample rate, channels, bit depth)
+  - [ ] 2.4.3 Add buffer size configuration (1-30 seconds)
+  - [ ] 2.4.4 Add capture mode selection (streaming vs file-based)
+  - [ ] 2.4.5 Implement audio device selection dropdown
+  - [ ] 2.4.6 Add file save location configuration
+
+- [ ] **2.5 Window Management**
+  - [ ] 2.5.1 Implement window show/hide functionality
+  - [ ] 2.5.2 Add window positioning (center screen)
+  - [ ] 2.5.3 Set up window focus management
+  - [ ] 2.5.4 Test window behavior across different Linux DEs
 
 ### Phase 3: Audio Recording & Processing
 **Goal**: Implement audio capture with silence detection and key controls
@@ -248,23 +257,30 @@
 ### Phase 8: Advanced Features (Optional)
 **Goal**: Add advanced features for power users
 
-- [ ] **8.1 Streaming Audio**
-  - [ ] 8.1.1 Implement real-time streaming transcription
-  - [ ] 8.1.2 Add live transcription display
-  - [ ] 8.1.3 Create streaming audio buffers
-  - [ ] 8.1.4 Optimize for low-latency operation
+- [ ] **8.1 Whisper Model Management**
+  - [ ] 8.1.1 Add model selection dropdown in settings
+  - [ ] 8.1.2 Implement model status display (available/unavailable with sizes)
+  - [ ] 8.1.3 Add model size information and memory requirements
+  - [ ] 8.1.4 Create "Open Models Folder" button
+  - [ ] 8.1.5 Implement "Download Models" button with progress display
+  - [ ] 8.1.6 Add background download support (continues when settings closed)
+  - [ ] 8.1.7 Add model performance comparison
+  - [ ] 8.1.8 Implement custom model paths
+  - [ ] 8.1.9 Add model validation and testing
+  - [ ] 8.1.10 Create auto-download missing models feature
+  - [ ] 8.1.11 Add model caching configuration options
 
-- [ ] **8.2 Model Picker**
-  - [ ] 8.2.1 Add support for different Whisper models
-  - [ ] 8.2.2 Create model selection interface
-  - [ ] 8.2.3 Implement model switching functionality
-  - [ ] 8.2.4 Add model performance comparison
+- [ ] **8.2 Streaming Audio**
+  - [ ] 8.2.1 Implement real-time streaming transcription
+  - [ ] 8.2.2 Add live transcription display
+  - [ ] 8.2.3 Create streaming audio buffers
+  - [ ] 8.2.4 Optimize for low-latency operation
 
-- [ ] **8.3 Settings Panel**
+- [ ] **8.3 Advanced Settings Panel**
   - [ ] 8.3.1 Create comprehensive settings interface
-  - [ ] 8.3.2 Add audio device selection
-  - [ ] 8.3.3 Implement hotkey customization
-  - [ ] 8.3.4 Add transcription language selection
+  - [ ] 8.3.2 Add hotkey customization
+  - [ ] 8.3.3 Add transcription language selection
+  - [ ] 8.3.4 Implement advanced audio device configuration
 
 - [ ] **8.4 Advanced Audio Features**
   - [ ] 8.4.1 Add noise reduction
@@ -303,19 +319,19 @@
 
 ## 📊 Progress Tracking
 
-**Overall Progress**: 25% Complete
+**Overall Progress**: 20% Complete
 - Phase 1: 4/4 tasks complete (100% complete) ✅
   - ✅ 1.1 Project Structure Setup (100% complete)
   - ✅ 1.2 Dependencies & Environment (100% complete)
   - ✅ 1.3 Basic Configuration (80% complete - constants file will be implemented with GUI)
   - ✅ 1.4 Audio System Foundation (100% complete - all audio functionality working)
-- Phase 2: 0/4 tasks complete (Ready to start)
+- Phase 2: 0/5 tasks complete (Ready to start - updated with settings page)
 - Phase 3: 0/4 tasks complete
 - Phase 4: 0/4 tasks complete
 - Phase 5: 0/4 tasks complete
 - Phase 6: 0/4 tasks complete
 - Phase 7: 0/4 tasks complete
-- Phase 8: 0/4 tasks complete (Optional)
+- Phase 8: 0/4 tasks complete (Optional - includes Whisper model management)
 - Phase 9: 0/4 tasks complete
 
 **Recent Improvements**:
@@ -324,7 +340,9 @@
 - ✅ Microphone access and testing fully functional
 - ✅ Memory management and cleanup implemented
 - ✅ Both streaming and file-based audio modes working
-- ✅ Ready to begin Phase 2: GUI Prototype
+- ✅ Updated Phase 2 to include MVP settings page (features 1-10)
+- ✅ Moved Whisper model management to Phase 8 (features 11-22)
+- ✅ Ready to begin Phase 2: GUI Prototype with Settings
 
 ---
 

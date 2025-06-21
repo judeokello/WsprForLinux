@@ -1,17 +1,10 @@
 """
 GUI module for W4L.
 
-Contains all user interface components including the main window,
-waveform visualization, and UI components.
+Contains the main application window, settings dialog, and UI components.
 """
 
-# GUI components will be imported here as they are implemented
-# from .main_window import MainWindow
-# from .waveform_widget import WaveformWidget
-# from .ui_components import StatusIndicator
+from .main_window import W4LMainWindow
+from .settings_dialog import W4LSettingsDialog
 
-__all__ = [
-    # 'MainWindow',
-    # 'WaveformWidget', 
-    # 'StatusIndicator'
-] 
+__all__ = ['W4LMainWindow', 'W4LSettingsDialog'] 
