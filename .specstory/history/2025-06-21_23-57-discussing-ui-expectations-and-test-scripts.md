@@ -306,3 +306,142 @@ What would you like to work on next?
 
 ---
 
+_**User**_
+
+Lets fix the error on the @main_window.py 
+
+---
+
+_**Assistant**_
+
+I'll fix the linter error in the `main_window.py` file. The issue is that `QApplication.primaryScreen()` can return `None`, so we need to handle that case.
+
+
+---
+
+```diff
+      def _center_window(self):
+          """Center the window on the screen."""
+-         screen = QApplication.primaryScreen().geometry()
++         screen = QApplication.primaryScreen()
++         if screen is None:
++             # Fallback: use desktop widget or default position
++             self.move(100, 100)
++             return
++             
++         screen_geometry = screen.geometry()
+          window_geometry = self.geometry()
+          
+-         x = (screen.width() - window_geometry.width()) // 2
+-         y = (screen.height() - window_geometry.height()) // 2
++         x = (screen_geometry.width() - window_geometry.width()) // 2
++         y = (screen_geometry.height() - window_geometry.height()) // 2
+          
+          self.move(x, y)
+```
+
+---
+
+Perfect! I've fixed the linter error by:
+
+1. **Adding a null check** for `QApplication.primaryScreen()` before accessing its geometry
+2. **Providing a fallback** that moves the window to position (100, 100) if no primary screen is available
+3. **Using a separate variable** `screen_geometry` to store the screen geometry after the null check
+
+This ensures that the code won't crash if `primaryScreen()` returns `None` (which can happen in certain environments or during application startup), and the window will still be positioned reasonably even in that case.
+
+The linter error should now be resolved. Would you like me to run a quick test to make sure the main window still works correctly with this fix?
+
+---
+
+_**User**_
+
+I am noticing that each time we test the gui you are not able to change the code. After I close the UI using the close button it is still running and a ctrl+C does not close the running process as shown. So what I do is close/kill the terminal but it don't know if that actually kills the app. I have a sense that is afffecting your ability to edit the main window in particular
+
+---
+
+_**Assistant**_
+
+You're absolutely right! This is a common issue with PyQt applications. When you close the window using the close button (×), the application doesn't actually terminate - it just hides the window. The process continues running in the background, which can cause several problems:
+
+1. **File locking**: The running process might keep files locked, preventing edits
+2. **Resource conflicts**: Multiple instances could be running simultaneously
+3. **Terminal hanging**: The terminal waits for the process to finish, but it never does
+
+Let me fix this by ensuring the application properly terminates when the close button is clicked:
+
+
+---
+
+```diff
+              }
+          """)
+-         self.close_button.clicked.connect(self.close)
++         self.close_button.clicked.connect(self._close_application)
+          
+          status_layout.addWidget(self.record_button)
+```
+
+```diff
+              self.logger.info("Recording stopped")
+  
++     def _close_application(self):
++         """Close the application."""
++         if self.logger:
++             self.logger.info("Close button clicked")
++         sys.exit()
++ 
+  if __name__ == '__main__':
+      # This block is for direct testing of the main window
+```
+
+---
+
+Now let me also add a proper close event handler to ensure the application terminates when the window is closed:
+
+
+---
+
+```diff
+      QLabel, QPushButton, QFrame, QSizePolicy
+  )
+- from PyQt6.QtCore import Qt
+- from PyQt6.QtGui import QFont
++ from PyQt6.QtCore import Qt, QEvent
++ from PyQt6.QtGui import QFont, QCloseEvent
+  from .waveform_widget import WaveformWidget
+  
+```
+
+---
+
+```diff
+          sys.exit()
+      
++     def closeEvent(self, event: QCloseEvent):
++         """Handle window close event."""
++         if self.logger:
++             self.logger.info("Window close event triggered")
++         # Accept the close event and exit the application
++         event.accept()
++         sys.exit()
++ 
+  if __name__ == '__main__':
+      # This block is for direct testing of the main window
+```
+
+---
+
+Now let me also update the test script to handle the application termination more gracefully:
+
+
+---
+
+
+
+---
+
+
+
+---
+

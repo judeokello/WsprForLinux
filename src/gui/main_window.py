@@ -3,8 +3,8 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, 
     QLabel, QPushButton, QFrame, QSizePolicy
 )
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
+from PyQt6.QtCore import Qt, QEvent
+from PyQt6.QtGui import QFont, QCloseEvent
 from .waveform_widget import WaveformWidget
 
 class W4LMainWindow(QMainWindow):
@@ -168,7 +168,7 @@ class W4LMainWindow(QMainWindow):
                 background-color: #c0392b;
             }
         """)
-        self.close_button.clicked.connect(self.close)
+        self.close_button.clicked.connect(self._close_application)
         
         status_layout.addWidget(self.record_button)
         status_layout.addStretch()
@@ -181,11 +181,17 @@ class W4LMainWindow(QMainWindow):
     
     def _center_window(self):
         """Center the window on the screen."""
-        screen = QApplication.primaryScreen().geometry()
+        screen = QApplication.primaryScreen()
+        if screen is None:
+            # Fallback: use desktop widget or default position
+            self.move(100, 100)
+            return
+            
+        screen_geometry = screen.geometry()
         window_geometry = self.geometry()
         
-        x = (screen.width() - window_geometry.width()) // 2
-        y = (screen.height() - window_geometry.height()) // 2
+        x = (screen_geometry.width() - window_geometry.width()) // 2
+        y = (screen_geometry.height() - window_geometry.height()) // 2
         
         self.move(x, y)
     
@@ -248,6 +254,20 @@ class W4LMainWindow(QMainWindow):
         
         if self.logger:
             self.logger.info("Recording stopped")
+
+    def _close_application(self):
+        """Close the application."""
+        if self.logger:
+            self.logger.info("Close button clicked")
+        sys.exit()
+    
+    def closeEvent(self, event: QCloseEvent):
+        """Handle window close event."""
+        if self.logger:
+            self.logger.info("Window close event triggered")
+        # Accept the close event and exit the application
+        event.accept()
+        sys.exit()
 
 if __name__ == '__main__':
     # This block is for direct testing of the main window

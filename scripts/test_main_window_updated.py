@@ -33,9 +33,12 @@ def test_main_window_updated():
     print("   - Status bar with recording and close buttons")
     print("   - Always on top and frameless window")
     print("   - Professional styling with rounded corners")
+    print("\n💡 Click the red × button to close the application properly")
     
     # Run the application
-    sys.exit(app.exec())
+    exit_code = app.exec()
+    print("✅ Application terminated successfully")
+    return exit_code
 
 if __name__ == "__main__":
     test_main_window_updated() 
