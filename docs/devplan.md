@@ -2,14 +2,9 @@
 
 ## 📋 Application Architecture
 
-**W4L is a system tray application** that runs continuously in the background and can be activated via global hotkey. The application follows this pattern:
+**W4L is a system tray application** that runs continuously in the background and can be activated via global hotkey. The application follows an **On-Demand Hybrid Model** to balance memory efficiency with responsiveness.
 
-- **Background Service**: App runs continuously with system tray icon
-- **Global Hotkey**: User-defined hotkey launches/shows the GUI
-- **Single GUI Instance**: Only one GUI window can be active at a time
-- **Background Operation**: When GUI closes, app continues running in memory
-- **Auto-Paste**: Transcription results are automatically pasted to active cursor position
-- **Model Persistence**: Whisper model stays loaded in memory for fast transcription
+For a detailed explanation of this architecture, see the **[Architecture Overview](architecture_overview.md)**.
 
 **Note**: This application is currently **Linux-only**. For details on Linux-specific assumptions and future cross-platform considerations, see [`docs/linux_specific_assumptions.md`](linux_specific_assumptions.md).
 
@@ -199,11 +194,13 @@
     - [x] 2.6.6.3 Add clipboard text copying functionality
     - [x] 2.6.6.4 Add active cursor detection (basic implementation)
     - [x] 2.6.6.5 Fix Ctrl+C termination (works regardless of GUI focus)
-  - [ ] 2.6.7 **Global Hotkey Integration**
+  - [ ] **2.6.7 **Global Hotkey Integration**
     - [ ] 2.6.7.1 Implement global hotkey listener
     - [ ] 2.6.7.2 Add hotkey configuration (default: Ctrl+Alt+W)
     - [ ] 2.6.7.3 Create hotkey registration/unregistration
     - [ ] 2.6.7.4 Test hotkey behavior across different Linux DEs
+    - [ ] 2.6.7.5 Implement hotkey handler function to trigger 'Active Mode'
+    - [ ] 2.6.7.6 Integrate model loading logic into the hotkey handler (connects to 4.4.5)
   - [ ] **2.6.8 **Application Startup**
     - [ ] 2.6.8.1 Create autostart configuration
     - [ ] 2.6.8.2 Add startup behavior options (hidden vs visible)
@@ -279,6 +276,8 @@
     - [ ] 4.4.5.3 Create W4LMemoryManager class for adaptive memory management
     - [ ] 4.4.5.4 Add memory compatibility warnings for large models
     - [ ] 4.4.5.5 Implement optimal buffer sizing based on available memory
+    - [ ] 4.4.5.6 Implement `load_model()` and `unload_model()` methods
+    - [ ] 4.4.5.7 Implement inactivity timer to automatically unload the model
 
 ### Phase 5: Auto-Paste Integration
 **Goal**: Automatically paste transcribed text into active applications
