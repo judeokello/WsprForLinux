@@ -104,13 +104,13 @@ class W4LMainWindow(QMainWindow):
         content_layout = QVBoxLayout(content_frame)
         content_layout.setContentsMargins(15, 15, 15, 15)
         content_layout.setSpacing(10)
-        
+
         # Waveform Widget
         self.waveform_widget = WaveformWidget()
         self.waveform_widget.setMinimumHeight(120)
         
         # Instruction label
-        self.instruction_label = QLabel("Press hotkey to start recording...")
+        self.instruction_label = QLabel("Speak now... Press ESC to cancel or Enter to finish early")
         self.instruction_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.instruction_label.setFont(QFont("Arial", 11))
         self.instruction_label.setStyleSheet("color: #2c3e50;")
@@ -375,4 +375,4 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     main_win = W4LMainWindow()
     main_win.show()
-    sys.exit(app.exec()) 
+    sys.exit(app.exec())

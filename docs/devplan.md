@@ -11,6 +11,8 @@
 - **Auto-Paste**: Transcription results are automatically pasted to active cursor position
 - **Model Persistence**: Whisper model stays loaded in memory for fast transcription
 
+**Note**: This application is currently **Linux-only**. For details on Linux-specific assumptions and future cross-platform considerations, see [`docs/linux_specific_assumptions.md`](linux_specific_assumptions.md).
+
 ## 📋 Tech Stack Overview
 
 | Layer                 | Tool / Library                              | Purpose                                         |
@@ -103,12 +105,12 @@
   - [x] 2.2.4 Add real-time waveform updates during recording
   - [x] 2.2.5 Style waveform with appropriate colors and scaling
 
-- [ ] **2.3 UI Elements**
-  - [ ] 2.3.1 Add instruction label: "Speak now... Press ESC to cancel or Enter to finish early"
-  - [ ] 2.3.2 Implement status indicators
-  - [ ] 2.3.3 Add recording state visual feedback
-  - [ ] 2.3.4 Create loading/processing indicators
-  - [ ] 2.3.5 Add gear icon for settings access
+- [x] **2.3 UI Elements** ✅
+  - [x] 2.3.1 Add instruction label: "Speak now... Press ESC to cancel or Enter to finish early"
+  - [x] 2.3.2 Implement status indicators
+  - [x] 2.3.3 Add recording state visual feedback
+  - [x] 2.3.4 Create loading/processing indicators
+  - [x] 2.3.5 Add gear icon for settings access
 
 - [ ] **2.4 Settings Page (MVP)**
   - [ ] 2.4.1 Create settings dialog window
@@ -362,7 +364,7 @@
 - Phase 2: 3/6 tasks complete (2.1, 2.2, and 2.6 complete, ready for 2.3)
   - ✅ 2.1 Basic GUI Framework (100% complete - main window, styling, properties)
   - ✅ 2.2 Waveform Visualization (100% complete - waveform widget integrated)
-  - 🔄 2.3 UI Elements (ready to start)
+  - ✅ 2.3 UI Elements (100% complete - all requirements met)
   - ⏳ 2.4 Settings Page (MVP) (pending)
   - ⏳ 2.5 Window Management (pending)
   - ✅ 2.6 System Tray & Application Lifecycle (100% complete - system tray working)
@@ -390,7 +392,7 @@
   - ✅ Proper application lifecycle (show/hide vs quit)
   - ✅ System tray context menu (Show Window, Settings, Quit)
   - ✅ Keyboard Shortcuts & Clipboard Integration
-- �� **Current Focus**: Fixing GUI close behavior and terminal termination
+- ✅ **Current Focus**: Fixing GUI close behavior and terminal termination
 - 🎯 **Next Priority**: Task 2.3 UI Elements or Global Hotkey Integration
 
 ---
