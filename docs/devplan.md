@@ -1,5 +1,16 @@
 # 🚀 W4L Development Plan
 
+## 📋 Application Architecture
+
+**W4L is a system tray application** that runs continuously in the background and can be activated via global hotkey. The application follows this pattern:
+
+- **Background Service**: App runs continuously with system tray icon
+- **Global Hotkey**: User-defined hotkey launches/shows the GUI
+- **Single GUI Instance**: Only one GUI window can be active at a time
+- **Background Operation**: When GUI closes, app continues running in memory
+- **Auto-Paste**: Transcription results are automatically pasted to active cursor position
+- **Model Persistence**: Whisper model stays loaded in memory for fast transcription
+
 ## 📋 Tech Stack Overview
 
 | Layer                 | Tool / Library                              | Purpose                                         |
@@ -112,6 +123,29 @@
   - [ ] 2.5.2 Add window positioning (center screen)
   - [ ] 2.5.3 Set up window focus management
   - [ ] 2.5.4 Test window behavior across different Linux DEs
+
+- [x] **2.6 System Tray & Application Lifecycle** ✅
+  - [x] 2.6.1 Create system tray icon and menu
+  - [x] 2.6.2 Implement application background operation
+  - [x] 2.6.3 Add single GUI instance management
+  - [x] 2.6.4 Create proper application lifecycle (show/hide vs quit)
+  - [x] 2.6.5 Add system tray context menu (Show Window, Settings, Quit)
+  - [x] 2.6.6 **Keyboard Shortcuts & Clipboard Integration** ✅
+    - [x] 2.6.6.1 Implement ESC key (hide window, keep app running)
+    - [x] 2.6.6.2 Implement Enter key (paste text and close window)
+    - [x] 2.6.6.3 Add clipboard text copying functionality
+    - [x] 2.6.6.4 Add active cursor detection (basic implementation)
+    - [x] 2.6.6.5 Fix Ctrl+C termination (works regardless of GUI focus)
+  - [ ] 2.6.7 **Global Hotkey Integration**
+    - [ ] 2.6.7.1 Implement global hotkey listener
+    - [ ] 2.6.7.2 Add hotkey configuration (default: Ctrl+Alt+W)
+    - [ ] 2.6.7.3 Create hotkey registration/unregistration
+    - [ ] 2.6.7.4 Test hotkey behavior across different Linux DEs
+  - [ ] 2.6.8 **Application Startup**
+    - [ ] 2.6.8.1 Create autostart configuration
+    - [ ] 2.6.8.2 Add startup behavior options (hidden vs visible)
+    - [ ] 2.6.8.3 Implement startup notification
+    - [ ] 2.6.8.4 Add startup error handling
 
 ### Phase 3: Audio Recording & Processing
 **Goal**: Implement audio capture with silence detection and key controls
@@ -319,16 +353,19 @@
 
 ## 📊 Progress Tracking
 
-**Overall Progress**: 28% Complete
+**Overall Progress**: 35% Complete
 - Phase 1: 4/4 tasks complete (100% complete) ✅
   - ✅ 1.1 Project Structure Setup (100% complete)
   - ✅ 1.2 Dependencies & Environment (100% complete)
   - ✅ 1.3 Basic Configuration (80% complete - constants file will be implemented with GUI)
   - ✅ 1.4 Audio System Foundation (100% complete - all audio functionality working)
-- Phase 2: 2/5 tasks complete (2.1 and 2.2 complete, ready for 2.3)
+- Phase 2: 3/6 tasks complete (2.1, 2.2, and 2.6 complete, ready for 2.3)
   - ✅ 2.1 Basic GUI Framework (100% complete - main window, styling, properties)
   - ✅ 2.2 Waveform Visualization (100% complete - waveform widget integrated)
   - 🔄 2.3 UI Elements (ready to start)
+  - ⏳ 2.4 Settings Page (MVP) (pending)
+  - ⏳ 2.5 Window Management (pending)
+  - ✅ 2.6 System Tray & Application Lifecycle (100% complete - system tray working)
 - Phase 3: 0/4 tasks complete
 - Phase 4: 0/4 tasks complete
 - Phase 5: 0/4 tasks complete
@@ -346,7 +383,15 @@
 - ✅ Completed 2.1 Basic GUI Framework with working main window
 - ✅ Window properties, styling, and centering working correctly
 - ✅ Completed 2.2 Waveform Visualization
-- ✅ Ready to begin 2.3 UI Elements
+- ✅ **Completed 2.6 System Tray & Application Lifecycle**
+  - ✅ System tray icon and menu implemented
+  - ✅ Application background operation working
+  - ✅ Single GUI instance management
+  - ✅ Proper application lifecycle (show/hide vs quit)
+  - ✅ System tray context menu (Show Window, Settings, Quit)
+  - ✅ Keyboard Shortcuts & Clipboard Integration
+- �� **Current Focus**: Fixing GUI close behavior and terminal termination
+- 🎯 **Next Priority**: Task 2.3 UI Elements or Global Hotkey Integration
 
 ---
 

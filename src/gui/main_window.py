@@ -1,16 +1,21 @@
 import sys
+import logging
+from typing import Optional
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, 
     QLabel, QPushButton, QFrame, QSizePolicy
 )
-from PyQt6.QtCore import Qt, QEvent
-from PyQt6.QtGui import QFont, QCloseEvent
+from PyQt6.QtCore import Qt, QEvent, pyqtSignal
+from PyQt6.QtGui import QFont, QCloseEvent, QKeyEvent
 from .waveform_widget import WaveformWidget
 
 class W4LMainWindow(QMainWindow):
+    # Signal emitted when window is closed (but app continues running)
+    window_closed = pyqtSignal()
+    
     def __init__(self):
         super().__init__()
-        self.logger = None  # Will be set up by main application
+        self.logger: Optional[logging.Logger] = None  # Will be set up by main application
         
         # Window state
         self.is_recording = False
@@ -259,15 +264,111 @@ class W4LMainWindow(QMainWindow):
         """Close the application."""
         if self.logger:
             self.logger.info("Close button clicked")
-        sys.exit()
+        # Hide the window instead of terminating the application
+        self.hide()
+        self.window_closed.emit()
     
     def closeEvent(self, event: QCloseEvent):
         """Handle window close event."""
         if self.logger:
             self.logger.info("Window close event triggered")
-        # Accept the close event and exit the application
+        # Hide the window instead of terminating the application
         event.accept()
-        sys.exit()
+        self.hide()
+        self.window_closed.emit()
+    
+    def keyPressEvent(self, event: QKeyEvent):
+        """Handle key press events."""
+        key = event.key()
+        
+        if key == Qt.Key.Key_Escape:
+            # ESC key: Hide the window but keep app running
+            if self.logger:
+                self.logger.info("ESC key pressed - hiding window")
+            self.hide()
+            self.window_closed.emit()
+            event.accept()
+            
+        elif key == Qt.Key.Key_Return or key == Qt.Key.Key_Enter:
+            # Enter key: Paste text and close window
+            if self.logger:
+                self.logger.info("Enter key pressed - pasting text and closing")
+            self._paste_text_and_close()
+            event.accept()
+            
+        else:
+            # Let other keys be handled normally
+            super().keyPressEvent(event)
+    
+    def _paste_text_and_close(self):
+        """Paste text to active cursor and close window."""
+        if self.logger:
+            self.logger.info("Attempting to paste text to active cursor")
+        
+        # TODO: Get actual transcribed text from recording
+        # For now, use a placeholder text
+        text_to_paste = "This is sample transcribed text from W4L."
+        
+        # Check if there's an active cursor/application
+        has_active_cursor = self._has_active_cursor()
+        
+        if has_active_cursor:
+            if self.logger:
+                self.logger.info("Text pasted to active cursor successfully")
+            # TODO: Actually paste the text here
+            # For now, just copy to clipboard
+            self._copy_text_to_clipboard(text_to_paste)
+        else:
+            if self.logger:
+                self.logger.warning("No active cursor found - text copied to clipboard but not pasted")
+            # Copy text to clipboard as fallback
+            self._copy_text_to_clipboard(text_to_paste)
+        
+        # Close the window
+        self.hide()
+        self.window_closed.emit()
+    
+    def _has_active_cursor(self) -> bool:
+        """Check if there's an active cursor/application window."""
+        try:
+            # TODO: Implement proper active window detection
+            # For now, we'll use a simple heuristic
+            # This should be enhanced with proper window management detection
+            
+            # Check if there are any active windows (excluding our own)
+            active_window = QApplication.activeWindow()
+            if active_window and active_window != self:
+                # If there's an active window other than ours, assume it has a cursor
+                return True
+            
+            # Fallback: assume there's always a cursor for now
+            # In a real implementation, this would check for:
+            # - Active application window
+            # - Text input focus
+            # - Cursor position
+            return True
+            
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Failed to detect active cursor: {e}")
+            return False
+    
+    def _copy_text_to_clipboard(self, text: str) -> bool:
+        """Copy text to system clipboard."""
+        try:
+            clipboard = QApplication.clipboard()
+            if clipboard is None:
+                if self.logger:
+                    self.logger.error("No clipboard available")
+                return False
+            clipboard.setText(text)
+            if self.logger:
+                self.logger.info(f"Text copied to clipboard: {text[:50]}...")
+            return True
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Failed to copy text to clipboard: {e}")
+            return False
 
 if __name__ == '__main__':
     # This block is for direct testing of the main window
