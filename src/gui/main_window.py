@@ -8,14 +8,16 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QEvent, pyqtSignal
 from PyQt6.QtGui import QFont, QCloseEvent, QKeyEvent
 from .waveform_widget import WaveformWidget
+from config import ConfigManager
 
 class W4LMainWindow(QMainWindow):
     # Signal emitted when window is closed (but app continues running)
     window_closed = pyqtSignal()
     
-    def __init__(self):
+    def __init__(self, config_manager: ConfigManager):
         super().__init__()
         self.logger: Optional[logging.Logger] = None  # Will be set up by main application
+        self.config_manager = config_manager
         
         # Window state
         self.is_recording = False
@@ -373,6 +375,11 @@ class W4LMainWindow(QMainWindow):
 if __name__ == '__main__':
     # This block is for direct testing of the main window
     app = QApplication(sys.argv)
-    main_win = W4LMainWindow()
+    
+    # Create a ConfigManager for testing
+    from config import ConfigManager
+    config_manager = ConfigManager()
+    
+    main_win = W4LMainWindow(config_manager)
     main_win.show()
     sys.exit(app.exec())

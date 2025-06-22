@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from PyQt6.QtWidgets import QApplication
 from gui.main_window import W4LMainWindow
+from config import ConfigManager
 import logging
 
 # Set up logging
@@ -23,8 +24,11 @@ def test_main_window_updated():
     """Test the updated main window with sophisticated design."""
     app = QApplication(sys.argv)
     
+    # Create ConfigManager instance
+    config_manager = ConfigManager()
+    
     # Create and show the main window
-    main_win = W4LMainWindow()
+    main_win = W4LMainWindow(config_manager)
     main_win.show()
     
     print("✅ Updated main window displayed successfully!")
@@ -33,6 +37,7 @@ def test_main_window_updated():
     print("   - Status bar with recording and close buttons")
     print("   - Always on top and frameless window")
     print("   - Professional styling with rounded corners")
+    print("   - Configuration manager integrated")
     print("\n💡 Click the red × button to close the application properly")
     
     # Run the application

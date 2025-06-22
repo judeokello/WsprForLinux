@@ -10,10 +10,12 @@ import sys
 import os
 import signal
 import logging
+import setproctitle
 from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QMessageBox
 from PyQt6.QtCore import QTimer, QObject, pyqtSignal
 from PyQt6.QtGui import QIcon, QAction
 from gui.main_window import W4LMainWindow
+from config import ConfigManager
 
 class W4LApplication(QObject):
     """Main application class that manages the system tray and GUI."""
@@ -23,6 +25,10 @@ class W4LApplication(QObject):
     
     def __init__(self):
         super().__init__()
+        
+        # Set custom process name for better identification in htop/task manager
+        setproctitle.setproctitle("w4l")
+        
         self.app = QApplication(sys.argv)
         self.app.setApplicationName("W4L - Whisper for Linux")
         self.app.setApplicationVersion("1.0.0")
@@ -30,6 +36,10 @@ class W4LApplication(QObject):
         # Setup logging
         self._setup_logging()
         self.logger = logging.getLogger("w4l.main")
+        
+        # Initialize configuration manager
+        self.config_manager = ConfigManager()
+        self.logger.info("Configuration manager initialized")
         
         # Application state
         self.main_window = None
@@ -111,7 +121,7 @@ class W4LApplication(QObject):
     
     def _setup_main_window(self):
         """Setup the main window."""
-        self.main_window = W4LMainWindow()
+        self.main_window = W4LMainWindow(self.config_manager)
         self.main_window.logger = self.logger
         
         # Connect window closed signal
