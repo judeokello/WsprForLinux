@@ -2,14 +2,14 @@
 # Core application dependencies
 
 # GUI Framework
-PyQt5==5.15.9
+PyQt6==6.9.1
 
 # Audio Processing
 sounddevice==0.4.6
-numpy==1.24.4
+numpy==2.2.6
 
 # Audio Visualization
-pyqtgraph==0.13.3
+pyqtgraph==0.13.7
 
 # Speech-to-Text
 openai-whisper==20231117
