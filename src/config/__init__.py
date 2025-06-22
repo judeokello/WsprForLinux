@@ -1,15 +1,21 @@
 """
-Config module for W4L.
+Configuration management module for W4L.
 
-Contains configuration management, constants, and logging setup.
+This module handles all configuration file operations, including:
+- Configuration file structure and schema
+- Default configuration values
+- Configuration loading and saving
+- Error handling and recovery
+- Access control (user-editable vs system-only settings)
 """
 
-from .settings import Settings
-from .logging_config import setup_logging, get_logger, set_log_level
+from .config_manager import ConfigManager
+from .config_schema import ConfigSchema, SettingDefinition, SettingAccess, SettingType
 
 __all__ = [
-    'Settings',
-    'setup_logging',
-    'get_logger',
-    'set_log_level'
+    'ConfigManager',
+    'ConfigSchema', 
+    'SettingDefinition',
+    'SettingAccess',
+    'SettingType'
 ] 

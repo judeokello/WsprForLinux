@@ -120,6 +120,67 @@
   - [ ] 2.4.5 Implement audio device selection dropdown
   - [ ] 2.4.6 Add file save location configuration
 
+- [ ] **2.4.0 Configuration System Implementation** 🔄
+  - [x] **2.4.0.1 Configuration File Structure** ✅
+    - [x] 2.4.0.1.1 Create `~/.config/w4l/` directory structure
+    - [x] 2.4.0.1.2 Implement `config.json` for main configuration
+    - [x] 2.4.0.1.3 Implement `audio_devices.json` for device preferences
+    - [x] 2.4.0.1.4 Implement `hotkeys.json` for hotkey configurations
+    - [x] 2.4.0.1.5 Create `logs/` directory for log files
+    - [x] 2.4.0.1.6 Add directory creation with proper permissions
+  
+  - [ ] **2.4.0.2 Configuration Format & Schema**
+    - [ ] 2.4.0.2.1 Define JSON configuration schema
+    - [ ] 2.4.0.2.2 Implement audio settings structure (sample_rate, channels, bit_depth, buffer_size, capture_mode)
+    - [ ] 2.4.0.2.3 Implement GUI settings structure (window_position, always_on_top, theme)
+    - [ ] 2.4.0.2.4 Implement transcription settings structure (model, language, auto_paste)
+    - [ ] 2.4.0.2.5 Implement system settings structure (autostart, hotkey, log_level)
+    - [ ] 2.4.0.2.6 Add configuration validation schema
+  
+  - [ ] **2.4.0.3 Default Configuration Strategy**
+    - [ ] 2.4.0.3.1 Create system defaults (built-in constants)
+    - [ ] 2.4.0.3.2 Define audio defaults (16kHz, mono, 16-bit, 5s buffer, streaming)
+    - [ ] 2.4.0.3.3 Define GUI defaults (centered position, always_on_top, default theme)
+    - [ ] 2.4.0.3.4 Define transcription defaults (base model, auto language, auto_paste enabled)
+    - [ ] 2.4.0.3.5 Define system defaults (no autostart, ctrl+alt+w hotkey, INFO log level)
+    - [ ] 2.4.0.3.6 Create fallback defaults for missing configurations
+  
+  - [ ] **2.4.0.4 Configuration Management Class**
+    - [ ] 2.4.0.4.1 Create `ConfigManager` class in `src/config/`
+    - [ ] 2.4.0.4.2 Implement `load_or_create_config()` method
+    - [ ] 2.4.0.4.3 Implement `create_default_config()` method
+    - [ ] 2.4.0.4.4 Implement `load_config()` method with error handling
+    - [ ] 2.4.0.4.5 Implement `save_config()` method with atomic writes
+    - [ ] 2.4.0.4.6 Implement `validate_and_repair_config()` method
+    - [ ] 2.4.0.4.7 Add configuration change notifications/signals
+  
+  - [ ] **2.4.0.5 Error Handling & Recovery**
+    - [ ] 2.4.0.5.1 Handle config file deletion (create new with defaults)
+    - [ ] 2.4.0.5.2 Handle corrupted JSON (backup old file, create new)
+    - [ ] 2.4.0.5.3 Handle missing sections/keys (add with defaults)
+    - [ ] 2.4.0.5.4 Handle invalid values (reset to defaults)
+    - [ ] 2.4.0.5.5 Handle permission issues (fallback location or in-memory)
+    - [ ] 2.4.0.5.6 Implement `safe_config_operation()` wrapper
+    - [ ] 2.4.0.5.7 Add comprehensive error logging
+    - [ ] 2.4.0.5.8 Create backup and recovery mechanisms
+  
+  - [ ] **2.4.0.6 Configuration Integration**
+    - [ ] 2.4.0.6.1 Integrate ConfigManager into main application
+    - [ ] 2.4.0.6.2 Connect configuration to audio system
+    - [ ] 2.4.0.6.3 Connect configuration to GUI settings
+    - [ ] 2.4.0.6.4 Connect configuration to system tray
+    - [ ] 2.4.0.6.5 Add configuration reload capability
+    - [ ] 2.4.0.6.6 Implement configuration change persistence
+  
+  - [ ] **2.4.0.7 Testing & Validation**
+    - [ ] 2.4.0.7.1 Test config file creation on first run
+    - [ ] 2.4.0.7.2 Test config loading with valid files
+    - [ ] 2.4.0.7.3 Test error recovery scenarios
+    - [ ] 2.4.0.7.4 Test configuration validation
+    - [ ] 2.4.0.7.5 Test atomic write operations
+    - [ ] 2.4.0.7.6 Test permission handling
+    - [ ] 2.4.0.7.7 Create configuration test suite
+
 - [ ] **2.5 Window Management**
   - [ ] 2.5.1 Implement window show/hide functionality
   - [ ] 2.5.2 Add window positioning (center screen)
@@ -355,17 +416,18 @@
 
 ## 📊 Progress Tracking
 
-**Overall Progress**: 35% Complete
+**Overall Progress**: 40% Complete
 - Phase 1: 4/4 tasks complete (100% complete) ✅
   - ✅ 1.1 Project Structure Setup (100% complete)
   - ✅ 1.2 Dependencies & Environment (100% complete)
   - ✅ 1.3 Basic Configuration (80% complete - constants file will be implemented with GUI)
   - ✅ 1.4 Audio System Foundation (100% complete - all audio functionality working)
-- Phase 2: 3/6 tasks complete (2.1, 2.2, and 2.6 complete, ready for 2.3)
+- Phase 2: 3/6 tasks complete (2.1, 2.2, 2.3, and 2.6 complete, ready for 2.4.0)
   - ✅ 2.1 Basic GUI Framework (100% complete - main window, styling, properties)
   - ✅ 2.2 Waveform Visualization (100% complete - waveform widget integrated)
   - ✅ 2.3 UI Elements (100% complete - all requirements met)
-  - ⏳ 2.4 Settings Page (MVP) (pending)
+  - 🔄 2.4.0 Configuration System Implementation (current focus)
+  - ⏳ 2.4 Settings Page (MVP) (pending - depends on 2.4.0)
   - ⏳ 2.5 Window Management (pending)
   - ✅ 2.6 System Tray & Application Lifecycle (100% complete - system tray working)
 - Phase 3: 0/4 tasks complete
@@ -385,6 +447,7 @@
 - ✅ Completed 2.1 Basic GUI Framework with working main window
 - ✅ Window properties, styling, and centering working correctly
 - ✅ Completed 2.2 Waveform Visualization
+- ✅ **Completed 2.3 UI Elements** (100% complete - all requirements met)
 - ✅ **Completed 2.6 System Tray & Application Lifecycle**
   - ✅ System tray icon and menu implemented
   - ✅ Application background operation working
@@ -392,8 +455,8 @@
   - ✅ Proper application lifecycle (show/hide vs quit)
   - ✅ System tray context menu (Show Window, Settings, Quit)
   - ✅ Keyboard Shortcuts & Clipboard Integration
-- ✅ **Current Focus**: Fixing GUI close behavior and terminal termination
-- 🎯 **Next Priority**: Task 2.3 UI Elements or Global Hotkey Integration
+- 🔄 **Current Focus**: Task 2.4.0 Configuration System Implementation
+- 🎯 **Next Priority**: Complete configuration system, then Settings Page (MVP)
 
 ---
 

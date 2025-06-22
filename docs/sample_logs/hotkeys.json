@@ -1,0 +1,6 @@
+{
+  "show_window": "ctrl+alt+w",
+  "start_recording": "ctrl+alt+r",
+  "stop_recording": "ctrl+alt+s",
+  "cancel_recording": "escape"
+}
