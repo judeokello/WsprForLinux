@@ -11,17 +11,17 @@ import os
 import signal
 import logging
 import setproctitle
+import psutil
+import atexit
 from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QMessageBox
-from PyQt6.QtCore import QTimer, QObject, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtGui import QIcon, QAction
 from gui.main_window import W4LMainWindow
+from gui.settings_dialog import SettingsDialog
 from config import ConfigManager
 
 class W4LApplication(QObject):
     """Main application class that manages the system tray and GUI."""
-    
-    # Signal to show the main window
-    show_window_requested = pyqtSignal()
     
     def __init__(self):
         super().__init__()
@@ -33,9 +33,43 @@ class W4LApplication(QObject):
         self.app.setApplicationName("W4L - Whisper for Linux")
         self.app.setApplicationVersion("1.0.0")
         
-        # Setup logging
+        # Prevent app from quitting when windows are closed
+        self.app.setQuitOnLastWindowClosed(False)
+        
+        # Setup logging first
         self._setup_logging()
         self.logger = logging.getLogger("w4l.main")
+        
+        # --- Single Instance Lock ---
+        # This ensures that only one instance of W4L can run at a time.
+        self.config_dir = os.path.expanduser("~/.config/w4l/")
+        os.makedirs(self.config_dir, exist_ok=True)
+        self.lock_file_path = os.path.join(self.config_dir, "w4l.lock")
+        
+        # Check if another instance is running
+        if os.path.exists(self.lock_file_path):
+            try:
+                with open(self.lock_file_path, 'r') as f:
+                    pid = int(f.read().strip())
+                
+                p = psutil.Process(pid)
+                # Check if the process with the PID is actually our application
+                if "w4l" in p.name() or "python" in p.name():
+                    self.logger.warning("W4L is already running. Exiting.")
+                    sys.exit(0)
+
+            except (IOError, ValueError, psutil.NoSuchProcess):
+                # Corrupted lock file or stale PID. The app will overwrite it.
+                self.logger.warning("Stale or corrupted lock file found. Overwriting.")
+                pass
+        
+        # Register cleanup to remove lock file on exit.
+        atexit.register(self.cleanup_lock_file)
+        
+        # Write the current PID to the lock file.
+        with open(self.lock_file_path, 'w') as f:
+            f.write(str(os.getpid()))
+        # --- End Single Instance Lock ---
         
         # Initialize configuration manager
         self.config_manager = ConfigManager()
@@ -44,7 +78,6 @@ class W4LApplication(QObject):
         # Application state
         self.main_window = None
         self.system_tray = None
-        self.is_initialized = False
         
         # Setup signal handlers for proper termination
         self._setup_signal_handlers()
@@ -123,6 +156,7 @@ class W4LApplication(QObject):
         """Setup the main window."""
         self.main_window = W4LMainWindow(self.config_manager)
         self.main_window.logger = self.logger
+        self.main_window.settings_requested.connect(self.show_settings)
         
         # Connect window closed signal
         self.main_window.window_closed.connect(self._on_window_closed)
@@ -156,8 +190,8 @@ class W4LApplication(QObject):
     def show_settings(self):
         """Show settings dialog."""
         self.logger.info("Settings requested")
-        # TODO: Implement settings dialog
-        QMessageBox.information(None, "Settings", "Settings dialog not yet implemented")
+        dialog = SettingsDialog(self.config_manager)
+        dialog.exec()
     
     def quit_application(self):
         """Quit the application completely."""
@@ -170,14 +204,30 @@ class W4LApplication(QObject):
         
         self.app.quit()
     
+    def cleanup_lock_file(self):
+        """Remove the lock file if it exists and was created by this process."""
+        try:
+            # Remove lock file if it exists and was created by this process
+            if os.path.exists(self.lock_file_path):
+                with open(self.lock_file_path, 'r') as f:
+                    pid = int(f.read().strip())
+                if pid == os.getpid():
+                    os.remove(self.lock_file_path)
+        except (IOError, ValueError):
+            # Suppress errors during cleanup.
+            pass
+
     def _on_about_to_quit(self):
         """Handle Qt application quit event."""
         self.logger.info("Qt application about to quit")
+        # The lock file is removed by the atexit handler, so no action is needed here,
+        # but we could add other cleanup tasks.
+        pass
         # TODO: Clean up resources
         # - Stop any ongoing recording
         # - Save settings
         # - Clean up temporary files
-    
+
     def run(self):
         """Run the application."""
         self.logger.info("Starting W4L application")

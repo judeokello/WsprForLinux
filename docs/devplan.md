@@ -107,13 +107,23 @@ For a detailed explanation of this architecture, see the **[Architecture Overvie
   - [x] 2.3.4 Create loading/processing indicators
   - [x] 2.3.5 Add gear icon for settings access
 
-- [ ] **2.4 Settings Page (MVP)**
-  - [ ] 2.4.1 Create settings dialog window
-  - [ ] 2.4.2 Implement audio format settings (sample rate, channels, bit depth)
-  - [ ] 2.4.3 Add buffer size configuration (1-30 seconds)
-  - [ ] 2.4.4 Add capture mode selection (streaming vs file-based)
-  - [ ] 2.4.5 Implement audio device selection dropdown
-  - [ ] 2.4.6 Add file save location configuration
+- [ ] **2.4 Tabbed Settings Page**
+  - [ ] **2.4.1 Create Tabbed Dialog Structure**
+    - [ ] 2.4.1.1 Refactor settings dialog to use a `QTabWidget`.
+    - [ ] 2.4.1.2 Implement a common button box (`OK`, `Cancel`, `Apply`) for all tabs.
+    - [ ] 2.4.1.3 Ensure `Cancel` only closes the dialog, not the app.
+  - [ ] **2.4.2 Implement 'Audio' Tab**
+    - [ ] 2.4.2.1 Add read-only display for sample rate, channels, and bit depth.
+    - [ ] 2.4.2.2 Implement audio device selection dropdown.
+    - [ ] 2.4.2.3 Add configurable audio buffer size (1-30 seconds).
+    - [ ] 2.4.2.4 Implement capture mode selection (Streaming/File-based).
+    - [ ] 2.4.2.5 Add a file path input that is only visible when 'File-based' mode is selected.
+    - [ ] 2.4.2.6 Set default save location to `~/.config/w4l/recordings/`.
+  - [ ] **2.4.3 Implement 'Model' Tab**
+    - [ ] 2.4.3.1 Display a list of downloaded Whisper models from `~/.cache/whisper`.
+    - [ ] 2.4.3.2 Show human-readable file sizes (e.g., 142 MB).
+    - [ ] 2.4.3.3 Add a read-only field for the Whisper model path.
+    - [ ] 2.4.3.4 Add an "Open Models Folder" button to open the path in the file manager.
 
 - [x] **2.4.0 Configuration System Implementation** ✅
   - [x] **2.4.0.1 Configuration File Structure** ✅
@@ -210,12 +220,19 @@ For a detailed explanation of this architecture, see the **[Architecture Overvie
     - [x] 2.6.9.1 Set custom process name for better identification in htop/task manager
     - [x] 2.6.9.2 Research best approach (setproctitle vs psutil vs system-specific)
     - [x] 2.6.9.3 Implement cross-platform process name setting
-    - [ ] 2.6.9.4 Test process identification in different monitoring tools
-  - [ ] **2.6.10 Single Instance Lock**
-    - [ ] 2.6.10.1 Implement a lock file mechanism to prevent multiple instances
-    - [ ] 2.6.10.2 If an instance is already running, focus the existing window
-    - [ ] 2.6.10.3 Ensure the lock is released properly on application exit
-    - [ ] 2.6.10.4 Test launching the app multiple times to verify the lock works
+    - [x] 2.6.9.4 Test process identification in different monitoring tools
+  - [x] **2.6.10 Single Instance Lock**
+    - [x] 2.6.10.1 Implement a lock file mechanism to prevent multiple instances
+    - [x] 2.6.10.2 If an instance is already running, focus the existing window
+    - [x] 2.6.10.3 Ensure the lock is released properly on application exit
+    - [x] 2.6.10.4 Test launching the app multiple times to verify the lock works
+    - [ ] **2.6.10.5 Inter-Process Communication for Window Management**
+      - [ ] 2.6.10.5.1 Implement Unix domain socket for IPC communication
+      - [ ] 2.6.10.5.2 Create socket listener in first instance to receive commands
+      - [ ] 2.6.10.5.3 Implement "show window" command protocol
+      - [ ] 2.6.10.5.4 Add window focus and bring-to-front functionality
+      - [ ] 2.6.10.5.5 Handle socket cleanup on application exit
+      - [ ] 2.6.10.5.6 Test IPC communication across different scenarios
 
 ### Phase 3: Audio Recording & Processing
 **Goal**: Implement audio capture with silence detection and key controls
@@ -436,7 +453,7 @@ For a detailed explanation of this architecture, see the **[Architecture Overvie
   - ✅ 2.2 Waveform Visualization (100% complete - waveform widget integrated)
   - ✅ 2.3 UI Elements (100% complete - all requirements met)
   - ✅ 2.4.0 Configuration System Implementation (100% complete - unified config system working)
-  - 🔄 2.4 Settings Page (MVP) (next priority - depends on 2.4.0)
+  - 🔄 2.4 Tabbed Settings Page (next priority - depends on 2.4.0)
   - ⏳ 2.5 Window Management (pending)
   - ✅ 2.6 System Tray & Application Lifecycle (100% complete - system tray working)
 - Phase 3: 0/4 tasks complete
@@ -470,7 +487,7 @@ For a detailed explanation of this architecture, see the **[Architecture Overvie
   - ✅ User-editable vs system-only settings separation
   - ✅ Comprehensive error handling and recovery
   - ✅ Complete testing suite with backup/restore functionality
-- 🎯 **Next Priority**: Task 2.4 Settings Page (MVP) - Create settings dialog with configuration integration
+- 🎯 **Next Priority**: Task 2.4 Tabbed Settings Page - Create tabbed dialog structure
 
 ---
 

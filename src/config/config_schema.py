@@ -146,6 +146,15 @@ class ConfigSchema:
             category="audio"
         ))
         
+        self._add_setting(SettingDefinition(
+            key="audio.save_path",
+            type=SettingType.STRING,
+            access=SettingAccess.USER_EDITABLE,
+            default="",
+            description="Directory to save audio files in file-based mode",
+            category="audio"
+        ))
+        
         # =============================================================================
         # GUI SETTINGS
         # =============================================================================

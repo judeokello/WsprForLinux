@@ -13,6 +13,8 @@ from config import ConfigManager
 class W4LMainWindow(QMainWindow):
     # Signal emitted when window is closed (but app continues running)
     window_closed = pyqtSignal()
+    # Signal emitted when the settings button is clicked
+    settings_requested = pyqtSignal()
     
     def __init__(self, config_manager: ConfigManager):
         super().__init__()
@@ -203,11 +205,10 @@ class W4LMainWindow(QMainWindow):
         self.move(x, y)
     
     def _open_settings(self):
-        """Open settings dialog."""
+        """Emit a signal to request the settings dialog."""
         if self.logger:
-            self.logger.info("Settings button clicked")
-        # TODO: Implement settings dialog
-        print("Settings dialog not yet implemented")
+            self.logger.info("Settings button clicked, emitting signal.")
+        self.settings_requested.emit()
     
     def _toggle_recording(self):
         """Toggle recording state."""
