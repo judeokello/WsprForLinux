@@ -87,12 +87,10 @@ class SettingsDialog(QDialog):
         capture_layout = QFormLayout(capture_group)
 
         self.capture_mode_combo = QComboBox()
-        self.capture_mode_combo.addItems(["Streaming", "File-based"])
-        self.buffer_size_spinbox = QSpinBox()
-        self.buffer_size_spinbox.setRange(1, 30)
-        self.buffer_size_spinbox.setSuffix(" seconds")
-        
-        # File path setting (conditionally visible)
+        self.capture_mode_combo.addItem("Streaming", "streaming")
+        self.capture_mode_combo.addItem("File-based", "file_based")
+
+        # Widgets for the conditional "Save Audio To" section
         self.file_path_widget = QWidget()
         file_path_layout = QHBoxLayout(self.file_path_widget)
         file_path_layout.setContentsMargins(0, 0, 0, 0)
@@ -101,9 +99,21 @@ class SettingsDialog(QDialog):
         file_path_layout.addWidget(self.file_path_edit)
         file_path_layout.addWidget(self.browse_button)
         
-        capture_layout.addRow("Capture Mode:", self.capture_mode_combo)
+        self.description_label = QLabel("Audio files will be saved in a 'W4L-Recordings' subfolder at this location.")
+        self.description_label.setStyleSheet("font-size: 9pt; color: #666;")
+        self.description_label.setWordWrap(True)
+
+        self.buffer_size_spinbox = QSpinBox()
+        self.buffer_size_spinbox.setRange(1, 30)
+        self.buffer_size_spinbox.setSuffix(" seconds")
+        
+        self.save_path_label = QLabel("Save Audio To:")
+
+        # Reorder the layout for better flow
         capture_layout.addRow("Audio Buffer Size:", self.buffer_size_spinbox)
-        capture_layout.addRow("Save Audio To:", self.file_path_widget)
+        capture_layout.addRow("Capture Mode:", self.capture_mode_combo)
+        capture_layout.addRow(self.save_path_label, self.file_path_widget)
+        capture_layout.addRow(self.description_label)
         
         # --- Read-only Info Group ---
         info_group = QGroupBox("Technical Info (Read-only)")
@@ -166,13 +176,15 @@ class SettingsDialog(QDialog):
             if index != -1:
                 self.audio_device_combo.setCurrentIndex(index)
 
-        capture_mode = self.config_manager.get_config_value('audio', 'capture_mode', 'Streaming')
-        self.capture_mode_combo.setCurrentText(capture_mode)
+        capture_mode = self.config_manager.get_config_value('audio', 'capture_mode', 'streaming')
+        index = self.capture_mode_combo.findData(capture_mode)
+        if index != -1:
+            self.capture_mode_combo.setCurrentIndex(index)
         
         buffer_size = self.config_manager.get_config_value('audio', 'buffer_size', 5)
         self.buffer_size_spinbox.setValue(buffer_size)
         
-        save_path = self.config_manager.get_config_value('audio', 'save_path', os.path.join(self.config_manager.get_config_dir(), 'recordings'))
+        save_path = self.config_manager.get_config_value('audio', 'save_path', os.path.expanduser('~/Documents'))
         self.file_path_edit.setText(save_path)
         
         # Load model settings
@@ -188,7 +200,7 @@ class SettingsDialog(QDialog):
             self.config_manager.set_config_value('audio', 'device', selected_device.name)
             self.config_manager.set_config_value('audio', 'device_id', selected_device.device_id)
 
-        self.config_manager.set_config_value('audio', 'capture_mode', self.capture_mode_combo.currentText())
+        self.config_manager.set_config_value('audio', 'capture_mode', self.capture_mode_combo.currentData())
         self.config_manager.set_config_value('audio', 'buffer_size', self.buffer_size_spinbox.value())
         self.config_manager.set_config_value('audio', 'save_path', self.file_path_edit.text())
         
@@ -196,12 +208,26 @@ class SettingsDialog(QDialog):
         
     def update_ui_visibility(self):
         """Show or hide settings based on other selections."""
-        is_file_based = self.capture_mode_combo.currentText() == "File-based"
+        is_file_based = self.capture_mode_combo.currentData() == "file_based"
+        self.save_path_label.setVisible(is_file_based)
         self.file_path_widget.setVisible(is_file_based)
+        self.description_label.setVisible(is_file_based)
 
     def browse_for_directory(self):
         """Open a dialog to select a directory."""
-        directory = QFileDialog.getExistingDirectory(self, "Select Directory")
+        current_path = self.file_path_edit.text()
+        
+        # Expand user-specific part of the path (like '~')
+        expanded_path = os.path.expanduser(current_path)
+
+        # Check if the path exists, if not, fall back to home directory
+        start_path = expanded_path if os.path.isdir(expanded_path) else os.path.expanduser("~")
+
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            "Select Directory for Recordings",
+            start_path
+        )
         if directory:
             self.file_path_edit.setText(directory)
 
@@ -227,19 +253,24 @@ class SettingsDialog(QDialog):
             self.model_list_widget.addItem("Model directory not found.")
             return
 
-        found_models = False
+        models = []
         for filename in os.listdir(whisper_cache_path):
             if filename.endswith(".pt"):
-                found_models = True
                 file_path = os.path.join(whisper_cache_path, filename)
                 size_bytes = os.path.getsize(file_path)
-                size_mb = size_bytes / (1024 * 1024)
-                
-                item_text = f"{filename} ({size_mb:.1f} MB)"
-                self.model_list_widget.addItem(QListWidgetItem(item_text))
-        
-        if not found_models:
+                models.append({'name': filename, 'size': size_bytes})
+
+        if not models:
             self.model_list_widget.addItem("No downloaded models found.")
+            return
+            
+        # Sort models by size (smallest first)
+        models.sort(key=lambda m: m['size'])
+        
+        for model in models:
+            size_mb = model['size'] / (1024 * 1024)
+            item_text = f"{model['name']} ({size_mb:.1f} MB)"
+            self.model_list_widget.addItem(QListWidgetItem(item_text))
 
     def accept(self):
         self.apply_settings()
