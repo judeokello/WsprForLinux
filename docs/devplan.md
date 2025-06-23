@@ -308,76 +308,51 @@ For a detailed explanation of this architecture, see the **[Architecture Overvie
     - [x] 3.4.5.5 Verify all state transitions work correctly
 
 ### Phase 4: Whisper Integration & Transcription
-**Goal**: Implement offline speech-to-text using Whisper
 
-- [ ] **4.1 Whisper Setup**
-  - [ ] 4.1.1 Integrate OpenAI Whisper library
-  - [ ] 4.1.2 Set up model downloading and caching
-  - [ ] 4.1.3 Configure for CPU-only inference
-  - [ ] 4.1.4 Test model loading and initialization
+#### 4.1 Whisper Setup & Model Management (Expanded)
+- 4.1.1 Integrate OpenAI Whisper library (not marked done until confirmed)
+- 4.1.2 Implement model downloading and caching
+- 4.1.3 Configure for CPU-only inference
+- 4.1.4 Test model loading and initialization (pending user confirmation)
+- 4.1.5 Implement persistent model metadata JSON:
+    - Track update interval, next update, per-model status, and download history
+    - Do NOT track selected model in this file
+- 4.1.6 Implement background model metadata checking and update logic
+- 4.1.7 Update Model Management UI:
+    - Always show all models, status, and actions
+    - Show "Update Model" button for outdated models
+    - Block update if model is currently selected; prompt user to switch first
+- 4.1.8 Refactor state machine and UI:
+    - Add MODEL_LOADING, MODEL_READY, etc.
+    - UI elements (dropdown, buttons, indicators) are state-driven
+    - Spinner/checkmark for model loading
+    - ESC/ENTER during MODEL_LOADING only hides GUI, does not cancel loading
 
-- [ ] **4.2 Audio Preprocessing**
-  - [ ] 4.2.1 Implement audio format conversion for Whisper
-  - [ ] 4.2.2 Add audio normalization and filtering
-  - [ ] 4.2.3 Create audio chunking for long recordings
-  - [ ] 4.2.4 Optimize audio processing pipeline
+#### 4.2 Audio Preprocessing (original, unchanged)
+- 4.2.1 Implement audio format conversion for Whisper
+- 4.2.2 Add audio normalization and filtering
+- 4.2.3 Create audio chunking for long recordings
+- 4.2.4 Optimize audio processing pipeline
 
-- [ ] **4.3 Transcription Engine**
-  - [ ] 4.3.1 Create transcription service class
-  - [ ] 4.3.2 Implement async transcription processing
-  - [ ] 4.3.3 Add transcription progress indicators
-  - [ ] 4.3.4 Handle transcription errors and timeouts
+#### 4.3 Transcription Engine (original, unchanged)
+- 4.3.1 Create transcription service class
+- 4.3.2 Implement async transcription processing
+- 4.3.3 Add transcription progress indicators
+- 4.3.4 Handle transcription errors and timeouts
 
-- [ ] **4.4 Model Optimization**
-  - [ ] 4.4.1 Implement model preloading on startup
-  - [ ] 4.4.2 Add model caching for faster subsequent use
-  - [ ] 4.4.3 Optimize memory usage for Whisper model
-  - [ ] 4.4.4 Test transcription accuracy and speed
-  - [ ] **4.4.5 Model-Aware Memory Management** 🔄
-    - [ ] 4.4.5.1 Implement dynamic memory thresholds based on model size
-    - [ ] 4.4.5.2 Add model memory requirements tracking (tiny: 150MB, base: 250MB, small: 500MB, medium: 1.5GB, large: 2.5GB)
-    - [ ] 4.4.5.3 Create W4LMemoryManager class for adaptive memory management
-    - [ ] 4.4.5.4 Add memory compatibility warnings for large models
-    - [ ] 4.4.5.5 Implement optimal buffer sizing based on available memory
-    - [ ] 4.4.5.6 Implement `load_model()` and `unload_model()` methods
-    - [ ] 4.4.5.7 Implement inactivity timer to automatically unload the model
-
-- [ ] **4.5 Model-Aware State Machine Extension** 🔄
-  - [ ] **4.5.1 Extend Recording State Machine**
-    - [ ] 4.5.1.1 Add MODEL_LOADING state for Whisper model loading
-    - [ ] 4.5.1.2 Add MODEL_READY state when model is loaded and ready
-    - [ ] 4.5.1.3 Add TRANSCRIBING state during audio transcription
-    - [ ] 4.5.1.4 Add MODEL_UNLOADING state for model cleanup
-    - [ ] 4.5.1.5 Update state transition table for new states
-    - [ ] 4.5.1.6 Add model lifecycle events (MODEL_LOAD_REQUESTED, MODEL_LOADED, TRANSCRIPTION_STARTED, TRANSCRIPTION_COMPLETED, MODEL_UNLOAD_REQUESTED)
-  
-  - [ ] **4.5.2 Application Lifecycle Integration**
-    - [ ] 4.5.2.1 Implement light mode (IDLE without model) for system startup
-    - [ ] 4.5.2.2 Add hotkey-triggered model loading (IDLE → MODEL_LOADING → MODEL_READY)
-    - [ ] 4.5.2.3 Integrate transcription into recording workflow (STOPPING → TRANSCRIBING → FINISHED → MODEL_READY)
-    - [ ] 4.5.2.4 Implement automatic model unloading after inactivity timeout
-    - [ ] 4.5.2.5 Add model state persistence across application sessions
-  
-  - [ ] **4.5.3 Memory Management Integration**
-    - [ ] 4.5.3.1 Connect state machine to W4LMemoryManager
-    - [ ] 4.5.3.2 Implement model loading/unloading callbacks
-    - [ ] 4.5.3.3 Add memory pressure handling (force unload when low memory)
-    - [ ] 4.5.3.4 Create model lifecycle monitoring and logging
-    - [ ] 4.5.3.5 Add user notifications for model operations (loading/unloading)
-  
-  - [ ] **4.5.4 UI State Synchronization**
-    - [ ] 4.5.4.1 Update UI for MODEL_LOADING state (show loading indicator)
-    - [ ] 4.5.4.2 Update UI for MODEL_READY state (show "Ready to record")
-    - [ ] 4.5.4.3 Update UI for TRANSCRIBING state (show transcription progress)
-    - [ ] 4.5.4.4 Update UI for MODEL_UNLOADING state (show unloading indicator)
-    - [ ] 4.5.4.5 Add model status display in settings/status bar
-  
-  - [ ] **4.5.5 Testing and Validation**
-    - [ ] 4.5.5.1 Create comprehensive tests for model-aware state transitions
-    - [ ] 4.5.5.2 Test memory management under various conditions
-    - [ ] 4.5.5.3 Validate application lifecycle (boot → hotkey → record → transcribe → timeout)
-    - [ ] 4.5.5.4 Test error handling for model loading/unloading failures
-    - [ ] 4.5.5.5 Performance testing for model operations
+#### 4.4 Model Optimization (original, unchanged)
+- 4.4.1 Implement model preloading on startup
+- 4.4.2 Add model caching for faster subsequent use
+- 4.4.3 Optimize memory usage for Whisper model
+- 4.4.4 Test transcription accuracy and speed
+- 4.4.5 **Model-Aware Memory Management** 🔄
+    - 4.4.5.1 Implement dynamic memory thresholds based on model size
+    - 4.4.5.2 Add model memory requirements tracking (tiny: 150MB, base: 250MB, small: 500MB, medium: 1.5GB, large: 2.5GB)
+    - 4.4.5.3 Create W4LMemoryManager class for adaptive memory management
+    - 4.4.5.4 Add memory compatibility warnings for large models
+    - 4.4.5.5 Implement optimal buffer sizing based on available memory
+    - 4.4.5.6 Implement `load_model()` and `unload_model()` methods
+    - 4.4.5.7 Implement inactivity timer to automatically unload the model
 
 ### Phase 5: Auto-Paste Integration
 **Goal**: Automatically paste transcribed text into active applications

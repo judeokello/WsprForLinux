@@ -1,19 +1,61 @@
 import sys
 import logging
+import psutil
+import whisper
+import gc
 from typing import Optional
 import numpy as np
 import sounddevice as sd
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, 
-    QLabel, QPushButton, QFrame, QSizePolicy
+    QLabel, QPushButton, QFrame, QSizePolicy, QComboBox, QMessageBox
 )
-from PyQt6.QtCore import Qt, QEvent, pyqtSignal
+from PyQt6.QtCore import Qt, QEvent, pyqtSignal, QThread, QObject
 from PyQt6.QtGui import QFont, QCloseEvent, QKeyEvent
 from .waveform_widget import WaveformWidget
 from config import ConfigManager
+from transcription.model_manager import ModelManager
 from audio.recorder import AudioRecorder
 from audio.recording_state_machine import RecordingStateMachine, RecordingState, RecordingEvent
 import os
+
+MODEL_MEMORY_REQ = {
+    'tiny': 1 * 1024**3,
+    'base': 1 * 1024**3,
+    'small': 2 * 1024**3,
+    'medium': 5 * 1024**3,
+    'large': 10 * 1024**3,
+    'large-v1': 10 * 1024**3,
+    'large-v2': 10 * 1024**3,
+    'large-v3': 10 * 1024**3,
+}
+
+class ModelLoadWorker(QObject):
+    finished = pyqtSignal(object)
+    error = pyqtSignal(str)
+
+    def __init__(self, model_name, old_model, config_manager, parent=None):
+        super().__init__(parent)
+        self.model_name = model_name
+        self.old_model = old_model
+        self.config_manager = config_manager
+
+    def run(self):
+        try:
+            # Unload old model
+            if self.old_model:
+                del self.old_model
+                gc.collect()
+
+            # Load new model
+            model = whisper.load_model(self.model_name)
+            
+            # Update config
+            self.config_manager.set_config_value('transcription', 'model', self.model_name)
+            
+            self.finished.emit(model)
+        except Exception as e:
+            self.error.emit(str(e))
 
 class W4LMainWindow(QMainWindow):
     # Signal emitted when window is closed (but app continues running)
@@ -21,10 +63,13 @@ class W4LMainWindow(QMainWindow):
     # Signal emitted when the settings button is clicked
     settings_requested = pyqtSignal()
     
-    def __init__(self, config_manager: ConfigManager):
+    def __init__(self, config_manager: ConfigManager, model_manager: ModelManager):
         super().__init__()
         self.logger: Optional[logging.Logger] = None  # Will be set up by main application
         self.config_manager = config_manager
+        self.model_manager = model_manager
+        self.whisper_model = None
+        self.is_model_loading = False
         
         # Audio Recorder setup
         self.recorder = self._setup_recorder()
@@ -38,6 +83,7 @@ class W4LMainWindow(QMainWindow):
         # Initialize UI
         self._setup_window_properties()
         self._create_ui()
+        self._populate_model_dropdown()
         self._center_window()
         
         if self.logger:
@@ -172,6 +218,12 @@ class W4LMainWindow(QMainWindow):
         """)
         self.record_button.clicked.connect(self._toggle_recording)
         
+        # Add model selection dropdown
+        self.model_combo = QComboBox()
+        self.model_combo.setToolTip("Select transcription model")
+        self.model_combo.currentIndexChanged.connect(self._on_model_selected)
+        status_layout.addWidget(self.model_combo)
+        
         # Close button
         self.close_button = QPushButton("×")
         self.close_button.setFixedSize(35, 35)
@@ -192,6 +244,7 @@ class W4LMainWindow(QMainWindow):
         
         status_layout.addWidget(self.record_button)
         status_layout.addStretch()
+        status_layout.addWidget(self.model_combo)
         status_layout.addWidget(self.close_button)
         
         # Add all components to main layout
@@ -215,6 +268,107 @@ class W4LMainWindow(QMainWindow):
         
         self.move(x, y)
     
+    def _populate_model_dropdown(self):
+        self.model_combo.clear()
+        
+        # Get downloaded and verified models
+        all_models = self.model_manager.list_models()
+        available_models = [m for m in all_models if m.get('is_verified')]
+        
+        if not available_models:
+            self.model_combo.addItem("No models found")
+            self.model_combo.setEnabled(False)
+            return
+            
+        self.model_combo.setEnabled(True)
+        for model in available_models:
+            size_mb = model.get('size_bytes', 0) / (1024 * 1024)
+            display_text = f"{model['name']} ({size_mb:.1f} MB)"
+            self.model_combo.addItem(display_text, userData=model)
+            
+        # Set current model from config
+        current_model_name = self.config_manager.get_config_value('transcription', 'model', 'base')
+        index = self.model_combo.findText(current_model_name, Qt.MatchFlag.MatchContains)
+        if index != -1:
+            self.model_combo.setCurrentIndex(index)
+
+    def _on_model_selected(self, index):
+        if index == -1:
+            return
+
+        selected_model_data = self.model_combo.itemData(index)
+        if not selected_model_data:
+            return
+
+        model_name = selected_model_data['name']
+        if self.logger:
+            self.logger.info(f"User selected model: {model_name}")
+
+        self._load_whisper_model(model_name)
+
+    def _load_whisper_model(self, model_name: str):
+        if self.logger:
+            self.logger.info(f"Request to load model: {model_name}")
+        
+        if self.is_model_loading:
+            if self.logger:
+                self.logger.warning("Model is already being loaded.")
+            return
+
+        # Find the base model name (e.g., 'tiny.en' -> 'tiny')
+        base_model_name = model_name.split('.')[0]
+        required_memory = MODEL_MEMORY_REQ.get(base_model_name, 1 * 1024**3) # Default to 1GB
+        
+        available_memory = psutil.virtual_memory().available
+
+        if available_memory < required_memory:
+            msg = f"Not enough memory to load model '{model_name}'.\n" \
+                  f"Required: {required_memory / 1024**3:.1f} GB\n" \
+                  f"Available: {available_memory / 1024**3:.1f} GB"
+            QMessageBox.warning(self, "Memory Error", msg)
+            
+            # TODO: Revert dropdown selection to the previously loaded model
+            return
+
+        self.is_model_loading = True
+        self.model_combo.setEnabled(False)
+        self.status_label.setText(f"Loading model: {model_name}...")
+        
+        thread = QThread()
+        # Keep a reference to the thread to prevent it from being garbage collected
+        self.load_thread = thread
+        worker = ModelLoadWorker(model_name, self.whisper_model, self.config_manager)
+        worker.moveToThread(thread)
+        
+        thread.started.connect(worker.run)
+        worker.finished.connect(self._on_model_load_finished)
+        worker.error.connect(self._on_model_load_error)
+        
+        # Clean up the thread and worker
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        
+        thread.start()
+
+    def _on_model_load_finished(self, model):
+        self.whisper_model = model
+        self.is_model_loading = False
+        self.model_combo.setEnabled(True)
+        self.status_label.setText("Ready")
+        if self.logger:
+            model_name = self.config_manager.get_config_value('transcription', 'model')
+            self.logger.info(f"Successfully loaded model: {model_name}")
+
+    def _on_model_load_error(self, error_message):
+        self.is_model_loading = False
+        self.model_combo.setEnabled(True)
+        self.status_label.setText("Error loading model")
+        QMessageBox.critical(self, "Model Load Error", error_message)
+        if self.logger:
+            self.logger.error(f"Failed to load model: {error_message}")
+        # TODO: Revert dropdown to previous model
+
     def _setup_recorder(self) -> Optional[AudioRecorder]:
         """Set up the audio recorder with configuration."""
         try:
@@ -806,7 +960,10 @@ if __name__ == '__main__':
     from config import ConfigManager
     config_manager = ConfigManager()
     
-    main_win = W4LMainWindow(config_manager)
+    # Create a ModelManager for testing
+    from transcription.model_manager import ModelManager
+    model_manager = ModelManager()
+    
+    main_win = W4LMainWindow(config_manager, model_manager)
     main_win.show()
-    sys.exit(app.exec())
     sys.exit(app.exec())

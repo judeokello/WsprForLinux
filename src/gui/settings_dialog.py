@@ -8,24 +8,144 @@ Provides configuration options for audio settings, device selection, and other p
 import logging
 import os
 import subprocess
+import sys
 from typing import Optional
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QComboBox, QSpinBox,
     QLineEdit, QPushButton, QDialogButtonBox, QWidget, QHBoxLayout,
-    QFileDialog, QLabel, QTabWidget, QGroupBox, QListWidget, QListWidgetItem
+    QFileDialog, QLabel, QTabWidget, QGroupBox, QListWidget, QListWidgetItem,
+    QProgressBar
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject
 
 from audio.device_detector import AudioDeviceDetector, AudioDevice
+from transcription.model_manager import ModelManager
+from config import ConfigManager
+
+
+class DownloadWorker(QObject):
+    """Worker thread for downloading models."""
+    finished = pyqtSignal()
+    progress = pyqtSignal(int, int)
+    error = pyqtSignal(str)
+    verification_complete = pyqtSignal(bool)
+
+    def __init__(self, model_manager: ModelManager, model_name: str, parent=None):
+        super().__init__(parent)
+        self.model_manager = model_manager
+        self.model_name = model_name
+
+    def run(self):
+        try:
+            self.model_manager.download_model(self.model_name, self.progress.emit)
+            self.verification_complete.emit(True)
+        except Exception as e:
+            self.error.emit(str(e))
+        finally:
+            self.finished.emit()
+
+
+class ModelListItem(QWidget):
+    """Custom widget for an item in the model list."""
+    def __init__(self, model_info: dict, model_manager: ModelManager, parent_dialog, parent=None):
+        super().__init__(parent)
+        self.model_info = model_info
+        self.model_manager = model_manager
+        self.parent_dialog = parent_dialog
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(5, 5, 5, 5)
+
+        self.name_label = QLabel(self.model_info['name'])
+        size_bytes = self.model_info.get('size_bytes', 0)
+        if size_bytes:
+            size_mb = size_bytes / (1024 * 1024)
+            self.size_label = QLabel(f"{size_mb:.1f} MB")
+        else:
+            self.size_label = QLabel("N/A")
+
+        self.status_label = QLabel()
+        self.action_button = QPushButton()
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setVisible(False)
+        self.progress_bar.setTextVisible(True)
+        self.progress_bar.setRange(0, 100)
+        
+        layout.addWidget(self.name_label, 2)
+        layout.addWidget(self.size_label, 1)
+        layout.addStretch(1)
+        layout.addWidget(self.status_label, 1)
+        layout.addWidget(self.action_button, 1)
+        layout.addWidget(self.progress_bar, 2)
+
+        self.action_button.clicked.connect(self.handle_action_click)
+        self.update_status()
+
+    def update_status(self):
+        is_downloaded = self.model_info.get('is_downloaded', False)
+        is_verified = self.model_info.get('is_verified', False)
+
+        if is_verified:
+            self.status_label.setText("Downloaded")
+            self.status_label.setStyleSheet("color: green;")
+            self.action_button.setText("Delete")
+            self.action_button.setEnabled(True)
+            self.progress_bar.setVisible(False)
+        elif is_downloaded and not is_verified:
+            self.status_label.setText("Corrupted")
+            self.status_label.setStyleSheet("color: orange;")
+            self.action_button.setText("Delete")
+            self.action_button.setEnabled(True)
+            self.progress_bar.setVisible(False)
+        else:
+            self.status_label.setText("Not Available")
+            self.status_label.setStyleSheet("color: #888;")
+            self.action_button.setText("Download")
+            self.action_button.setEnabled(True)
+            self.progress_bar.setVisible(False)
+    
+    def handle_action_click(self):
+        if self.action_button.text() == "Download":
+            self.parent_dialog.start_model_download(self)
+        elif self.action_button.text() == "Delete":
+            # TODO: Implement deletion
+            self.parent_dialog.delete_model(self)
+
+    def download_started(self):
+        self.action_button.setEnabled(False)
+        self.status_label.setText("Downloading...")
+        self.progress_bar.setValue(0)
+        self.progress_bar.setVisible(True)
+
+    def download_progress(self, bytes_downloaded, total_bytes):
+        if total_bytes > 0:
+            percent = int((bytes_downloaded / total_bytes) * 100)
+            self.progress_bar.setValue(percent)
+
+    def download_finished(self, success, error_msg=None):
+        self.progress_bar.setVisible(False)
+        self.action_button.setEnabled(True)
+        if success:
+            self.model_info['is_downloaded'] = True
+            self.model_info['is_verified'] = True
+        else:
+            self.model_info['is_downloaded'] = False
+            self.model_info['is_verified'] = False
+        self.update_status()
+        if error_msg:
+            self.status_label.setText("Error")
+            self.setToolTip(error_msg)
 
 
 class SettingsDialog(QDialog):
     """Settings dialog window."""
     
-    def __init__(self, config_manager, parent=None):
+    def __init__(self, config_manager: ConfigManager, model_manager: ModelManager, parent=None):
         super().__init__(parent)
         self.config_manager = config_manager
+        self.model_manager = model_manager
         self.logger = logging.getLogger("w4l.gui.settings_dialog")
+        self.download_threads = {}
         
         self.device_detector = AudioDeviceDetector()
         self.devices = []
@@ -268,39 +388,35 @@ class SettingsDialog(QDialog):
         layout.addStretch()
 
     def load_settings(self):
-        """Load settings from ConfigManager and populate UI fields."""
-        self.logger.info("Loading settings into dialog.")
-        
-        # Load available audio devices
+        """Load settings from the config manager and populate the UI."""
+        # Load audio settings
         self.devices = self.device_detector.get_input_devices()
         self.audio_device_combo.clear()
         for device in self.devices:
-            self.audio_device_combo.addItem(device.name, userData=device)
-
-        # Load and set current values from config
-        current_device_name = self.config_manager.get_config_value('audio', 'device')
-        if current_device_name:
-            index = self.audio_device_combo.findText(current_device_name)
-            if index != -1:
-                self.audio_device_combo.setCurrentIndex(index)
-
+            self.audio_device_combo.addItem(device.name, device.device_id)
+        
+        device_id = self.config_manager.get_config_value('audio', 'device_id')
+        index = self.audio_device_combo.findData(device_id)
+        if index != -1:
+            self.audio_device_combo.setCurrentIndex(index)
+        
         capture_mode = self.config_manager.get_config_value('audio', 'capture_mode', 'streaming')
         index = self.capture_mode_combo.findData(capture_mode)
         if index != -1:
             self.capture_mode_combo.setCurrentIndex(index)
-        
+            
+        save_path = self.config_manager.get_config_value('audio', 'save_path', os.path.expanduser("~"))
+        self.file_path_edit.setText(save_path)
+
         buffer_size = self.config_manager.get_config_value('audio', 'buffer_size', 5)
         self.buffer_size_spinbox.setValue(buffer_size)
         
-        save_path = self.config_manager.get_config_value('audio', 'save_path', os.path.expanduser('~/Documents'))
-        self.file_path_edit.setText(save_path)
-        
-        # Load model settings
-        self.load_model_info()
+        # Load model info
+        self.model_path_edit.setText(str(self.model_manager.models_path))
         
         # Load silence detection settings
         self.load_silence_settings()
-        
+    
     def load_silence_settings(self):
         """Load silence detection settings from config."""
         # Convert float threshold to percentage for UI
@@ -413,45 +529,87 @@ class SettingsDialog(QDialog):
             self.file_path_edit.setText(directory)
 
     def open_model_directory(self):
-        """Open the directory where Whisper models are stored."""
-        path = os.path.expanduser("~/.cache/whisper")
-        if os.path.exists(path):
-            try:
-                subprocess.run(['xdg-open', path], check=True)
-                self.logger.info(f"Opened model directory: {path}")
-            except (FileNotFoundError, subprocess.SubprocessError) as e:
-                self.logger.error(f"Failed to open model directory with xdg-open: {e}")
-        else:
-            self.logger.warning(f"Whisper model directory does not exist: {path}")
+        """Open the directory where models are stored."""
+        path = self.model_path_edit.text()
+        try:
+            if sys.platform == "win32":
+                os.startfile(path)
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", path])
+            else:
+                subprocess.Popen(["xdg-open", path])
+        except Exception as e:
+            self.logger.error(f"Could not open model directory '{path}': {e}")
 
-    def load_model_info(self):
-        """Load and display information about downloaded Whisper models."""
-        whisper_cache_path = os.path.expanduser("~/.cache/whisper")
-        self.model_path_edit.setText(whisper_cache_path)
+    def populate_model_list(self):
+        """Populate the list of models."""
         self.model_list_widget.clear()
-
-        if not os.path.exists(whisper_cache_path):
-            self.model_list_widget.addItem("Model directory not found.")
-            return
-
-        models = []
-        for filename in os.listdir(whisper_cache_path):
-            if filename.endswith(".pt"):
-                file_path = os.path.join(whisper_cache_path, filename)
-                size_bytes = os.path.getsize(file_path)
-                models.append({'name': filename, 'size': size_bytes})
-
-        if not models:
-            self.model_list_widget.addItem("No downloaded models found.")
-            return
-            
-        # Sort models by size (smallest first)
-        models.sort(key=lambda m: m['size'])
+        self.model_path_edit.setText(str(self.model_manager.models_path))
         
-        for model in models:
-            size_mb = model['size'] / (1024 * 1024)
-            item_text = f"{model['name']} ({size_mb:.1f} MB)"
-            self.model_list_widget.addItem(QListWidgetItem(item_text))
+        # This can be slow and should be run in a background thread
+        try:
+            models = self.model_manager.list_models()
+            for model_info in models:
+                item = QListWidgetItem(self.model_list_widget)
+                widget = ModelListItem(model_info, self.model_manager, self)
+                item.setSizeHint(widget.sizeHint())
+                self.model_list_widget.addItem(item)
+                self.model_list_widget.setItemWidget(item, widget)
+        except Exception as e:
+            self.logger.error(f"Failed to populate model list: {e}")
+            # Optionally, show an error message in the list
+            self.model_list_widget.addItem("Error loading model list.")
+
+    def start_model_download(self, item_widget: ModelListItem):
+        """Start a download for a model in a background thread."""
+        model_name = item_widget.model_info['name']
+        
+        if model_name in self.download_threads and self.download_threads[model_name].isRunning():
+            self.logger.warning(f"Download for {model_name} already in progress.")
+            return
+
+        thread = QThread()
+        worker = DownloadWorker(self.model_manager, model_name)
+        worker.moveToThread(thread)
+
+        def on_finished(success, error_msg=None):
+            item_widget.download_finished(success, error_msg)
+            if model_name in self.download_threads:
+                del self.download_threads[model_name]
+        
+        def on_success(verified):
+            on_finished(verified)
+
+        def on_error(msg):
+            on_finished(False, msg)
+
+        # Connections
+        thread.started.connect(worker.run)
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        
+        worker.progress.connect(item_widget.download_progress)
+        worker.verification_complete.connect(on_success)
+        worker.error.connect(on_error)
+
+        thread.start()
+        self.download_threads[model_name] = thread
+        item_widget.download_started()
+
+    def delete_model(self, item_widget: ModelListItem):
+        """Delete a model file."""
+        model_info = item_widget.model_info
+        file_path = model_info.get('filepath')
+        if file_path and os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+                self.logger.info(f"Deleted model: {file_path}")
+                model_info['is_downloaded'] = False
+                model_info['is_verified'] = False
+                item_widget.update_status()
+            except Exception as e:
+                self.logger.error(f"Failed to delete model {file_path}: {e}")
 
     def accept(self):
         self.apply_settings()

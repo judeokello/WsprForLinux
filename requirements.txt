@@ -26,6 +26,7 @@ librosa==0.10.1
 # Configuration and Utilities
 python-dotenv==1.0.0
 pathlib2==2.3.7
+requests
 
 # System Monitoring
 psutil==5.9.6

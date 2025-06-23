@@ -19,6 +19,7 @@ from PyQt6.QtGui import QIcon, QAction
 from gui.main_window import W4LMainWindow
 from gui.settings_dialog import SettingsDialog
 from config import ConfigManager
+from transcription.model_manager import ModelManager
 
 class W4LApplication(QObject):
     """Main application class that manages the system tray and GUI."""
@@ -74,6 +75,10 @@ class W4LApplication(QObject):
         # Initialize configuration manager
         self.config_manager = ConfigManager()
         self.logger.info("Configuration manager initialized")
+
+        # Initialize model manager
+        self.model_manager = ModelManager()
+        self.logger.info("Model manager initialized")
         
         # Application state
         self.main_window = None
@@ -154,7 +159,7 @@ class W4LApplication(QObject):
     
     def _setup_main_window(self):
         """Setup the main window."""
-        self.main_window = W4LMainWindow(self.config_manager)
+        self.main_window = W4LMainWindow(self.config_manager, self.model_manager)
         self.main_window.logger = self.logger
         self.main_window.settings_requested.connect(self.show_settings)
         
@@ -190,7 +195,7 @@ class W4LApplication(QObject):
     def show_settings(self):
         """Show settings dialog."""
         self.logger.info("Settings requested")
-        dialog = SettingsDialog(self.config_manager)
+        dialog = SettingsDialog(self.config_manager, self.model_manager)
         dialog.exec()
     
     def quit_application(self):
