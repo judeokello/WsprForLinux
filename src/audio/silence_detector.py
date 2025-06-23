@@ -206,7 +206,7 @@ class SilenceDetector:
             return
 
         is_speech = self._detect_speech(rms_value, spectral_value, 0)
-
+        
         if is_speech:
             self.silence_start_time = 0.0
             if not self.speech_detected:
@@ -220,7 +220,7 @@ class SilenceDetector:
         else:
             if self.silence_start_time == 0.0:
                 self.silence_start_time = current_time
-
+            
             if (current_time - self.silence_start_time) >= self.config.silence_duration:
                 # A lock is needed here to prevent a race condition where the callback
                 # is fired multiple times before the stream is stopped.

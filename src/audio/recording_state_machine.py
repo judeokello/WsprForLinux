@@ -240,32 +240,31 @@ class RecordingStateMachine(QObject):
     
     def _handle_recording(self, event: RecordingEvent, **kwargs):
         """Handle RECORDING state."""
-        if event == RecordingEvent.STOP_REQUESTED and self.on_stop_recording:
+        # This handler is called when entering RECORDING state
+        if event == RecordingEvent.START_REQUESTED and self.on_start_recording:
             try:
-                self.on_stop_recording()
-                self.handle_event(RecordingEvent.CLEANUP_COMPLETED)
+                self.on_start_recording()
             except Exception as e:
-                self.logger.error(f"Error stopping recording: {e}")
-                self.handle_event(RecordingEvent.ERROR_OCCURRED, error=e)
-        elif event == RecordingEvent.ABORT_REQUESTED and self.on_abort_recording:
-            try:
-                self.on_abort_recording()
-            except Exception as e:
-                self.logger.error(f"Error aborting recording: {e}")
-                self.handle_event(RecordingEvent.ERROR_OCCURRED, error=e)
-        elif event == RecordingEvent.SILENCE_DETECTED and self.on_stop_recording:
-            try:
-                self.on_stop_recording()
-                self.handle_event(RecordingEvent.CLEANUP_COMPLETED)
-            except Exception as e:
-                self.logger.error(f"Error stopping recording due to silence: {e}")
+                self.logger.error(f"Error starting recording: {e}")
                 self.handle_event(RecordingEvent.ERROR_OCCURRED, error=e)
     
     def _handle_stopping(self, event: RecordingEvent, **kwargs):
         """Handle STOPPING state."""
-        # This state is mainly for cleanup operations
-        # The actual cleanup should be handled by the external callback
-        pass
+        # This handler is called when entering STOPPING state
+        if event == RecordingEvent.STOP_REQUESTED and self.on_stop_recording:
+            try:
+                self.on_stop_recording()
+                # Don't call handle_event here - let the callback do it
+            except Exception as e:
+                self.logger.error(f"Error stopping recording: {e}")
+                self.handle_event(RecordingEvent.ERROR_OCCURRED, error=e)
+        elif event == RecordingEvent.SILENCE_DETECTED and self.on_stop_recording:
+            try:
+                self.on_stop_recording()
+                # Don't call handle_event here - let the callback do it
+            except Exception as e:
+                self.logger.error(f"Error stopping recording due to silence: {e}")
+                self.handle_event(RecordingEvent.ERROR_OCCURRED, error=e)
     
     def _handle_finished(self, event: RecordingEvent, **kwargs):
         """Handle FINISHED state."""
@@ -274,8 +273,13 @@ class RecordingStateMachine(QObject):
     
     def _handle_aborted(self, event: RecordingEvent, **kwargs):
         """Handle ABORTED state."""
-        # Recording was cancelled
-        self.logger.info("Recording was aborted")
+        # This handler is called when entering ABORTED state
+        if event == RecordingEvent.ABORT_REQUESTED and self.on_abort_recording:
+            try:
+                self.on_abort_recording()
+            except Exception as e:
+                self.logger.error(f"Error aborting recording: {e}")
+                self.handle_event(RecordingEvent.ERROR_OCCURRED, error=e)
     
     def _handle_error(self, event: RecordingEvent, **kwargs):
         """Handle ERROR state."""

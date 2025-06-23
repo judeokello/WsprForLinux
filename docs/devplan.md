@@ -295,11 +295,17 @@ For a detailed explanation of this architecture, see the **[Architecture Overvie
     - [ ] 3.3.8.4 **Issue**: Silence detector state machine needs refinement
     - [ ] 3.3.8.5 **Status**: ESC and ENTER key functionality working correctly
 
-- [ ] **3.4 Recording State Management**
-  - [ ] 3.4.1 Create recording state machine
-  - [ ] 3.4.2 Implement start/stop/pause recording logic
-  - [ ] 3.4.3 Add recording duration tracking
-  - [ ] 3.4.4 Handle recording errors gracefully
+- [x] **3.4 Recording State Management** ✅
+  - [x] 3.4.1 Create recording state machine
+  - [x] 3.4.2 Implement start/stop/pause recording logic
+  - [x] 3.4.3 Add recording duration tracking
+  - [x] 3.4.4 Handle recording errors gracefully
+  - [x] **3.4.5 State Machine Integration** ✅
+    - [x] 3.4.5.1 Integrate state machine into main application
+    - [x] 3.4.5.2 Connect state machine to audio system
+    - [x] 3.4.5.3 Implement UI state synchronization
+    - [x] 3.4.5.4 Add comprehensive testing suite
+    - [x] 3.4.5.5 Verify all state transitions work correctly
 
 ### Phase 4: Whisper Integration & Transcription
 **Goal**: Implement offline speech-to-text using Whisper
@@ -335,6 +341,43 @@ For a detailed explanation of this architecture, see the **[Architecture Overvie
     - [ ] 4.4.5.5 Implement optimal buffer sizing based on available memory
     - [ ] 4.4.5.6 Implement `load_model()` and `unload_model()` methods
     - [ ] 4.4.5.7 Implement inactivity timer to automatically unload the model
+
+- [ ] **4.5 Model-Aware State Machine Extension** 🔄
+  - [ ] **4.5.1 Extend Recording State Machine**
+    - [ ] 4.5.1.1 Add MODEL_LOADING state for Whisper model loading
+    - [ ] 4.5.1.2 Add MODEL_READY state when model is loaded and ready
+    - [ ] 4.5.1.3 Add TRANSCRIBING state during audio transcription
+    - [ ] 4.5.1.4 Add MODEL_UNLOADING state for model cleanup
+    - [ ] 4.5.1.5 Update state transition table for new states
+    - [ ] 4.5.1.6 Add model lifecycle events (MODEL_LOAD_REQUESTED, MODEL_LOADED, TRANSCRIPTION_STARTED, TRANSCRIPTION_COMPLETED, MODEL_UNLOAD_REQUESTED)
+  
+  - [ ] **4.5.2 Application Lifecycle Integration**
+    - [ ] 4.5.2.1 Implement light mode (IDLE without model) for system startup
+    - [ ] 4.5.2.2 Add hotkey-triggered model loading (IDLE → MODEL_LOADING → MODEL_READY)
+    - [ ] 4.5.2.3 Integrate transcription into recording workflow (STOPPING → TRANSCRIBING → FINISHED → MODEL_READY)
+    - [ ] 4.5.2.4 Implement automatic model unloading after inactivity timeout
+    - [ ] 4.5.2.5 Add model state persistence across application sessions
+  
+  - [ ] **4.5.3 Memory Management Integration**
+    - [ ] 4.5.3.1 Connect state machine to W4LMemoryManager
+    - [ ] 4.5.3.2 Implement model loading/unloading callbacks
+    - [ ] 4.5.3.3 Add memory pressure handling (force unload when low memory)
+    - [ ] 4.5.3.4 Create model lifecycle monitoring and logging
+    - [ ] 4.5.3.5 Add user notifications for model operations (loading/unloading)
+  
+  - [ ] **4.5.4 UI State Synchronization**
+    - [ ] 4.5.4.1 Update UI for MODEL_LOADING state (show loading indicator)
+    - [ ] 4.5.4.2 Update UI for MODEL_READY state (show "Ready to record")
+    - [ ] 4.5.4.3 Update UI for TRANSCRIBING state (show transcription progress)
+    - [ ] 4.5.4.4 Update UI for MODEL_UNLOADING state (show unloading indicator)
+    - [ ] 4.5.4.5 Add model status display in settings/status bar
+  
+  - [ ] **4.5.5 Testing and Validation**
+    - [ ] 4.5.5.1 Create comprehensive tests for model-aware state transitions
+    - [ ] 4.5.5.2 Test memory management under various conditions
+    - [ ] 4.5.5.3 Validate application lifecycle (boot → hotkey → record → transcribe → timeout)
+    - [ ] 4.5.5.4 Test error handling for model loading/unloading failures
+    - [ ] 4.5.5.5 Performance testing for model operations
 
 ### Phase 5: Auto-Paste Integration
 **Goal**: Automatically paste transcribed text into active applications
@@ -482,7 +525,7 @@ For a detailed explanation of this architecture, see the **[Architecture Overvie
 
 ## 📊 Progress Tracking
 
-**Overall Progress**: 49% Complete
+**Overall Progress**: 52% Complete
 - Phase 1: 4/4 tasks complete (100% complete) ✅
   - ✅ 1.1 Project Structure Setup (100% complete)
   - ✅ 1.2 Dependencies & Environment (100% complete)
@@ -496,12 +539,12 @@ For a detailed explanation of this architecture, see the **[Architecture Overvie
   - ✅ 2.4 Tabbed Settings Page (100% complete - tabbed dialog implemented)
   - ⏳ 2.5 Window Management (pending)
   - ✅ 2.6 System Tray & Application Lifecycle (100% complete - system tray working)
-- Phase 3: 3/4 tasks complete (3.1, 3.2, and 3.3 complete)
+- Phase 3: 4/4 tasks complete (3.1, 3.2, 3.3, and 3.4 complete)
   - ✅ 3.1 Audio Recording System (100% complete - robust audio stream management implemented)
   - ✅ 3.2 Silence Detection (100% complete - RMS-based silence detection working)
   - ✅ 3.3 Key Controls (100% complete - Enter/Escape key handling implemented)
-  - ⏳ 3.4 Recording State Management (pending)
-- Phase 4: 0/4 tasks complete
+  - ✅ 3.4 Recording State Management (100% complete - state machine integrated)
+- Phase 4: 0/5 tasks complete (includes new 4.5 Model-Aware State Machine Extension)
 - Phase 5: 0/4 tasks complete
 - Phase 6: 0/4 tasks complete
 - Phase 7: 0/4 tasks complete

@@ -507,7 +507,7 @@ class AudioRecorder:
             try:
                 self.on_noise_learned(noise_level)
             except Exception as e:
-                self.logger.error(f"Error in noise learned callback: {e}")
+                self.logger.error(f"Error in noise learned callback: {e}") 
     
     def get_audio_buffer(self) -> Optional[np.ndarray]:
         """

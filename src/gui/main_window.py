@@ -12,6 +12,7 @@ from PyQt6.QtGui import QFont, QCloseEvent, QKeyEvent
 from .waveform_widget import WaveformWidget
 from config import ConfigManager
 from audio.recorder import AudioRecorder
+from audio.recording_state_machine import RecordingStateMachine, RecordingState, RecordingEvent
 import os
 
 class W4LMainWindow(QMainWindow):
@@ -27,9 +28,12 @@ class W4LMainWindow(QMainWindow):
         
         # Audio Recorder setup
         self.recorder = self._setup_recorder()
+        
+        # Recording State Machine setup
+        self.state_machine = self._setup_state_machine()
 
-        # Window state
-        self.is_recording = False
+        # Window state (deprecated - now managed by state machine)
+        # self.is_recording = False
         
         # Initialize UI
         self._setup_window_properties()
@@ -212,22 +216,38 @@ class W4LMainWindow(QMainWindow):
         self.move(x, y)
     
     def _setup_recorder(self) -> Optional[AudioRecorder]:
-        """Initialize the AudioRecorder based on current config."""
+        """Set up the audio recorder with configuration."""
         try:
+            # Get device configuration
             device_id = self.config_manager.get_config_value('audio', 'device_id')
-            if device_id is None:
-                device_id = sd.default.device[0] # Fallback to default input device
-
-            sample_rate = self.config_manager.get_config_value('audio', 'sample_rate', 16000)
-            channels = self.config_manager.get_config_value('audio', 'channels', 1)
+            sample_rate = self.config_manager.get_config_value('audio', 'sample_rate')
+            channels = self.config_manager.get_config_value('audio', 'channels')
+            buffer_size = self.config_manager.get_config_value('audio', 'buffer_size')
             
-            recorder = AudioRecorder(device_id=device_id, sample_rate=sample_rate, channels=channels)
-            # Connect the callback to update the waveform widget
+            # Create recorder
+            recorder = AudioRecorder(
+                device_id=device_id,
+                sample_rate=sample_rate,
+                channels=channels,
+                blocksize=1024
+            )
+            
+            # Set up callbacks
             recorder.audio_chunk_callback = self.handle_audio_chunk
+            
+            # Set up silence detection callbacks
+            recorder.set_silence_callbacks(
+                on_silence_detected=self._on_silence_detected,
+                on_speech_detected=self._on_speech_detected,
+                on_noise_learned=self._on_noise_learned
+            )
+            
+            if self.logger:
+                self.logger.info(f"Audio recorder initialized with device {device_id}")
+            
             return recorder
+            
         except Exception as e:
-            # Logger might not be initialized yet, so we print as a fallback
-            print(f"ERROR: Failed to initialize audio recorder: {e}")
             if self.logger:
                 self.logger.error(f"Failed to initialize audio recorder: {e}")
             return None
@@ -244,94 +264,41 @@ class W4LMainWindow(QMainWindow):
     
     def _toggle_recording(self):
         """Toggle recording state."""
-        if self.is_recording:
-            self._stop_recording()
-        else:
+        if self.state_machine.get_state() == RecordingState.IDLE:
             self._start_recording()
+        elif self.state_machine.get_state() == RecordingState.RECORDING:
+            self._stop_recording()
     
     def _start_recording(self):
-        """Start the audio recording."""
+        """Start recording audio."""
         if not self.recorder:
             if self.logger:
-                self.logger.error("Audio recorder not available.")
+                self.logger.error("No audio recorder available.")
             return
             
-        if self.is_recording:
+        if self.state_machine.get_state() != RecordingState.IDLE:
             if self.logger:
                 self.logger.warning("Recording is already in progress.")
             return
-
-        # Ensure recordings directory exists in file-based mode
-        capture_mode = self.config_manager.get_config_value('audio', 'capture_mode')
-        if capture_mode == 'file_based':
-            save_path = self.config_manager.get_config_value('audio', 'save_path')
-            recordings_dir = os.path.join(save_path, 'W4L-Recordings')
-            try:
-                os.makedirs(recordings_dir, exist_ok=True)
-                if self.logger:
-                    self.logger.info(f"Ensured recordings directory exists: {recordings_dir}")
-            except OSError as e:
-                if self.logger:
-                    self.logger.error(f"Failed to create recordings directory: {e}")
-
-        # Ensure the recorder is ready
-        self.recorder.start()
         
-        # Set up silence detection callbacks
-        self.recorder.set_silence_callbacks(
-            on_silence_detected=self._on_silence_detected,
-            on_speech_detected=self._on_speech_detected,
-            on_noise_learned=self._on_noise_learned
-        )
-        
-        self.is_recording = True
-        self.waveform_widget.start_recording()
-        self.record_button.setText("Stop Recording")
-        self.record_button.setStyleSheet("""
-            QPushButton {
-                background-color: #e74c3c;
-                color: white;
-                border: none;
-                border-radius: 17px;
-                padding: 8px 16px;
-            }
-            QPushButton:hover {
-                background-color: #c0392b;
-            }
-        """)
-        self.status_label.setText("Recording...")
-        self.status_label.setStyleSheet("color: #e74c3c; font-weight: bold;")
-        self.instruction_label.setText("Recording in progress...")
+        self.state_machine.handle_event(RecordingEvent.START_REQUESTED)
         
         if self.logger:
-            self.logger.info("Recording started")
+            self.logger.info("Recording started.")
     
     def _stop_recording(self):
-        """Stop recording."""
-        if self.recorder:
-            self.recorder.stop()
-            
+        """Stop recording and process the audio."""
+        if not self.recorder:
+            if self.logger:
+                self.logger.error("No audio recorder available.")
+            return
+        
+        # Stop the waveform widget
         self.waveform_widget.stop_recording()
-        self.is_recording = False
-        self.record_button.setText("Start Recording")
-        self.record_button.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                border: none;
-                border-radius: 17px;
-                padding: 8px 16px;
-            }
-            QPushButton:hover {
-                background-color: #229954;
-            }
-        """)
-        self.status_label.setText("Ready")
-        self.status_label.setStyleSheet("color: #27ae60; font-weight: bold;")
-        self.instruction_label.setText("Press hotkey to start recording...")
+        self.state_machine.handle_event(RecordingEvent.STOP_REQUESTED)
         
         if self.logger:
-            self.logger.info("Recording stopped")
+            self.logger.info("Recording stopped.")
 
     def _close_application(self):
         """Close the application."""
@@ -352,34 +319,41 @@ class W4LMainWindow(QMainWindow):
     
     def keyPressEvent(self, event: QKeyEvent):
         """Handle key press events."""
-        key = event.key()
-        
-        if key == Qt.Key.Key_Escape:
-            # ESC key: Abort recording and discard everything
+        if event.key() == Qt.Key.Key_Escape:
             if self.logger:
                 self.logger.info("ESC key pressed - aborting recording")
-            self._abort_recording()
+            if self.state_machine.get_state() == RecordingState.RECORDING:
+                self.state_machine.handle_event(RecordingEvent.ABORT_REQUESTED)
             event.accept()
-            
-        elif key == Qt.Key.Key_Return or key == Qt.Key.Key_Enter:
-            # Enter key: Finish recording early, transcribe, and paste/save
+        elif event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter:
             if self.logger:
                 self.logger.info("Enter key pressed - finishing recording early")
-            self._finish_recording_early()
+            if self.state_machine.get_state() == RecordingState.RECORDING:
+                self.state_machine.handle_event(RecordingEvent.STOP_REQUESTED)
             event.accept()
-            
         else:
-            # Let other keys be handled normally
             super().keyPressEvent(event)
     
     def _abort_recording(self):
-        """Abort recording and discard everything."""
-        if self.logger:
-            self.logger.info("Aborting recording - discarding all data")
+        """Abort recording and discard audio."""
+        if not self.recorder:
+            if self.logger:
+                self.logger.error("No audio recorder available.")
+            return
+        
+        # Stop the waveform widget
+        self.waveform_widget.stop_recording()
         
         # Stop recording if active
-        if self.is_recording:
+        if self.state_machine.get_state() == RecordingState.RECORDING:
             self._stop_recording()
+        
+        # Clear any recorded audio
+        if self.recorder:
+            self.recorder.clear_audio_buffer()
+        
+        if self.logger:
+            self.logger.info("Recording aborted.")
         
         # Reset UI state
         self._reset_ui_state()
@@ -389,26 +363,26 @@ class W4LMainWindow(QMainWindow):
         self.window_closed.emit()
     
     def _finish_recording_early(self):
-        """Finish recording early, transcribe current audio, and paste/save text."""
-        if self.logger:
-            self.logger.info("Finishing recording early")
+        """Finish recording early and process the audio."""
+        if not self.recorder:
+            if self.logger:
+                self.logger.error("No audio recorder available.")
+            return
         
         # Stop recording if active
-        if self.is_recording:
+        if self.state_machine.get_state() == RecordingState.RECORDING:
             self._stop_recording()
         
-        # Get transcribed text from current audio buffer
-        transcribed_text = self._get_transcribed_text()
-        
-        if transcribed_text:
-            # Handle text output based on active cursor and capture mode
-            self._handle_text_output(transcribed_text)
+        # Process the recorded audio
+        text = self._get_transcribed_text()
+        if text:
+            self._handle_text_output(text)
         else:
             if self.logger:
-                self.logger.warning("No transcribed text available")
-            # Show user feedback
-            self.status_label.setText("No audio to transcribe")
-            self.status_label.setStyleSheet("color: #f39c12; font-weight: bold;")
+                self.logger.warning("No text was transcribed.")
+        
+        if self.logger:
+            self.logger.info("Recording finished early.")
         
         # Reset UI state
         self._reset_ui_state()
@@ -544,7 +518,7 @@ class W4LMainWindow(QMainWindow):
     
     def _reset_ui_state(self):
         """Reset UI to initial state."""
-        self.is_recording = False
+        self.state_machine.reset_to_idle()
         self.record_button.setText("Start Recording")
         self.record_button.setStyleSheet("""
             QPushButton {
@@ -596,11 +570,11 @@ class W4LMainWindow(QMainWindow):
         return True
 
     def _on_silence_detected(self):
-        """Callback for when silence is detected."""
+        """Handle silence detection event."""
         if self.logger:
             self.logger.info("Silence detected, stopping recording.")
-        if self.is_recording:
-            self._stop_recording()
+        if self.state_machine.get_state() == RecordingState.RECORDING:
+            self.state_machine.handle_event(RecordingEvent.SILENCE_DETECTED)
 
     def _on_speech_detected(self):
         """Callback for when speech is detected."""
@@ -614,23 +588,215 @@ class W4LMainWindow(QMainWindow):
 
     def reset_for_test(self):
         """Resets the window's state for a new test."""
-        if self.recorder and self.is_recording:
+        if self.recorder and self.state_machine.get_state() == RecordingState.RECORDING:
             self.recorder.stop()
         
-        # Re-create the recorder and silence detector
-        self.recorder = self._setup_recorder()
+        # Reset the recorder
         if self.recorder:
-            self.recorder.set_silence_callbacks(
-                on_silence_detected=self._on_silence_detected,
-                on_speech_detected=self._on_speech_detected,
-                on_noise_learned=self._on_noise_learned
-            )
+            self.recorder.reset_silence_detection()
+            self.recorder.clear_audio_buffer()
         
-        self.is_recording = False
+        self.state_machine.reset_to_idle()
         self.waveform_widget.reset_plot()
         self._reset_ui_state()
         if self.logger:
             self.logger.info("W4LMainWindow reset for new test.")
+
+    def _setup_state_machine(self) -> RecordingStateMachine:
+        """Set up the recording state machine with callbacks."""
+        state_machine = RecordingStateMachine()
+        
+        # Connect state machine signals to UI updates
+        state_machine.state_changed.connect(self._on_state_changed)
+        state_machine.error_occurred.connect(self._on_state_machine_error)
+        state_machine.recovery_attempted.connect(self._on_recovery_attempted)
+        
+        # Set up callbacks for external actions
+        state_machine.on_start_recording = self._state_machine_start_recording
+        state_machine.on_stop_recording = self._state_machine_stop_recording
+        state_machine.on_abort_recording = self._state_machine_abort_recording
+        state_machine.on_error = self._state_machine_handle_error
+        state_machine.on_recovery = self._state_machine_attempt_recovery
+        
+        return state_machine
+    
+    def _on_state_changed(self, old_state: RecordingState, new_state: RecordingState, event: RecordingEvent):
+        """Handle state machine state changes and update UI accordingly."""
+        if self.logger:
+            self.logger.info(f"State changed: {old_state.name} -> {new_state.name} (event: {event.name})")
+        
+        # Update UI based on new state
+        if new_state == RecordingState.IDLE:
+            self._update_ui_for_idle()
+        elif new_state == RecordingState.RECORDING:
+            self._update_ui_for_recording()
+        elif new_state == RecordingState.STOPPING:
+            self._update_ui_for_stopping()
+        elif new_state == RecordingState.FINISHED:
+            self._update_ui_for_finished()
+        elif new_state == RecordingState.ABORTED:
+            self._update_ui_for_aborted()
+        elif new_state == RecordingState.ERROR:
+            self._update_ui_for_error()
+        elif new_state == RecordingState.RECOVERING:
+            self._update_ui_for_recovering()
+    
+    def _on_state_machine_error(self, error_message: str):
+        """Handle state machine errors."""
+        if self.logger:
+            self.logger.error(f"State machine error: {error_message}")
+        self.status_label.setText(f"Error: {error_message}")
+        self.status_label.setStyleSheet("color: #e74c3c; font-weight: bold;")
+    
+    def _on_recovery_attempted(self):
+        """Handle recovery attempts."""
+        if self.logger:
+            self.logger.info("Recovery attempt started")
+        self.status_label.setText("Recovering...")
+        self.status_label.setStyleSheet("color: #f39c12; font-weight: bold;")
+    
+    def _state_machine_start_recording(self):
+        """Callback for state machine to start recording."""
+        try:
+            if self.recorder:
+                self.recorder.start()
+                self.recorder.start_silence_detection()
+                if self.logger:
+                    self.logger.info("Recording started via state machine")
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Error starting recording: {e}")
+            self.state_machine.handle_event(RecordingEvent.ERROR_OCCURRED, error=e)
+    
+    def _state_machine_stop_recording(self):
+        """Callback for state machine to stop recording."""
+        try:
+            if self.recorder:
+                self.recorder.stop()
+                self.recorder.stop_silence_detection()
+                if self.logger:
+                    self.logger.info("Recording stopped via state machine")
+                # Signal cleanup completion
+                self.state_machine.handle_event(RecordingEvent.CLEANUP_COMPLETED)
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Error stopping recording: {e}")
+            self.state_machine.handle_event(RecordingEvent.ERROR_OCCURRED, error=e)
+    
+    def _state_machine_abort_recording(self):
+        """Callback for state machine to abort recording."""
+        try:
+            if self.recorder:
+                self.recorder.stop()
+                self.recorder.stop_silence_detection()
+                self.recorder.clear_audio_buffer()  # Clear any recorded audio
+                if self.logger:
+                    self.logger.info("Recording aborted via state machine")
+                # Don't call CLEANUP_COMPLETED - abort should stay in ABORTED state
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Error aborting recording: {e}")
+            self.state_machine.handle_event(RecordingEvent.ERROR_OCCURRED, error=e)
+    
+    def _state_machine_handle_error(self, error: Exception):
+        """Callback for state machine to handle errors."""
+        if self.logger:
+            self.logger.error(f"State machine error handler: {error}")
+        self.status_label.setText(f"Error: {str(error)}")
+        self.status_label.setStyleSheet("color: #e74c3c; font-weight: bold;")
+    
+    def _state_machine_attempt_recovery(self):
+        """Callback for state machine to attempt recovery."""
+        try:
+            if self.recorder:
+                self.recorder.force_recovery()
+                if self.logger:
+                    self.logger.info("Recovery attempted via state machine")
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Recovery failed: {e}")
+            self.state_machine.handle_event(RecordingEvent.RECOVERY_FAILED, error=e)
+    
+    def _update_ui_for_idle(self):
+        """Update UI for IDLE state."""
+        self.record_button.setText("Start Recording")
+        self.record_button.setStyleSheet("""
+            QPushButton {
+                background-color: #27ae60;
+                color: white;
+                border: none;
+                border-radius: 17px;
+                padding: 8px 16px;
+            }
+            QPushButton:hover {
+                background-color: #229954;
+            }
+        """)
+        self.status_label.setText("Ready")
+        self.status_label.setStyleSheet("color: #27ae60; font-weight: bold;")
+        self.instruction_label.setText("Click Start Recording to begin")
+    
+    def _update_ui_for_recording(self):
+        """Update UI for RECORDING state."""
+        self.record_button.setText("Stop Recording")
+        self.record_button.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c;
+                color: white;
+                border: none;
+                border-radius: 17px;
+                padding: 8px 16px;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+        """)
+        self.status_label.setText("Recording...")
+        self.status_label.setStyleSheet("color: #e74c3c; font-weight: bold;")
+        self.instruction_label.setText("Speak now... Press ESC to cancel or Enter to finish early")
+        # Start waveform recording
+        self.waveform_widget.start_recording()
+    
+    def _update_ui_for_stopping(self):
+        """Update UI for STOPPING state."""
+        self.record_button.setEnabled(False)
+        self.status_label.setText("Stopping...")
+        self.status_label.setStyleSheet("color: #f39c12; font-weight: bold;")
+        self.instruction_label.setText("Processing recording...")
+    
+    def _update_ui_for_finished(self):
+        """Update UI for FINISHED state."""
+        self.record_button.setEnabled(True)
+        self.status_label.setText("Recording completed")
+        self.status_label.setStyleSheet("color: #27ae60; font-weight: bold;")
+        self.instruction_label.setText("Recording saved successfully")
+        # Reset to idle after a short delay
+        QApplication.processEvents()
+        self.state_machine.reset_to_idle()
+    
+    def _update_ui_for_aborted(self):
+        """Update UI for ABORTED state."""
+        self.record_button.setEnabled(True)
+        self.status_label.setText("Recording cancelled")
+        self.status_label.setStyleSheet("color: #95a5a6; font-weight: bold;")
+        self.instruction_label.setText("Recording was cancelled")
+        # Reset to idle after a short delay
+        QApplication.processEvents()
+        self.state_machine.reset_to_idle()
+    
+    def _update_ui_for_error(self):
+        """Update UI for ERROR state."""
+        self.record_button.setEnabled(True)
+        self.status_label.setText("Error occurred")
+        self.status_label.setStyleSheet("color: #e74c3c; font-weight: bold;")
+        self.instruction_label.setText("An error occurred during recording")
+    
+    def _update_ui_for_recovering(self):
+        """Update UI for RECOVERING state."""
+        self.record_button.setEnabled(False)
+        self.status_label.setText("Recovering...")
+        self.status_label.setStyleSheet("color: #f39c12; font-weight: bold;")
+        self.instruction_label.setText("Attempting to recover from error...")
 
 if __name__ == '__main__':
     # This block is for direct testing of the main window
@@ -642,4 +808,5 @@ if __name__ == '__main__':
     
     main_win = W4LMainWindow(config_manager)
     main_win.show()
+    sys.exit(app.exec())
     sys.exit(app.exec())
