@@ -53,13 +53,13 @@ For a detailed explanation of this architecture, see the **[Architecture Overvie
     - [x] 1.3.4.3 Create `setup.py` for legacy tool compatibility
     - [x] 1.3.4.4 Configure pytest, black, flake8, and mypy settings
     - [x] 1.3.4.5 **Resolve import errors in test files** ✅
-  - [ ] **1.3.5 Create constants file for app settings**
-    - [ ] 1.3.5.1 Define audio format constants
-    - [ ] 1.3.5.2 Define UI dimension constants
-    - [ ] 1.3.5.3 Define timeout and threshold constants
-    - [ ] 1.3.5.4 Define default configuration values
-    - [ ] 1.3.5.5 Add buffer size configuration (default: 5 seconds, range: 1-30 seconds)
-    - [ ] 1.3.5.6 Add capture mode configuration (streaming vs file-based)
+  - [x] **1.3.5 Create constants file for app settings**
+    - [x] 1.3.5.1 Define audio format constants
+    - [x] 1.3.5.2 Define UI dimension constants
+    - [x] 1.3.5.3 Define timeout and threshold constants
+    - [x] 1.3.5.4 Define default configuration values
+    - [x] 1.3.5.5 Add buffer size configuration (default: 5 seconds, range: 1-30 seconds)
+    - [x] 1.3.5.6 Add capture mode configuration (streaming vs file-based)
   - [x] 1.3.6 Add error handling utilities
 
 - [x] **1.4 Audio System Foundation**
@@ -238,17 +238,47 @@ For a detailed explanation of this architecture, see the **[Architecture Overvie
 ### Phase 3: Audio Recording & Processing
 **Goal**: Implement audio capture with silence detection and key controls
 
-- [ ] **3.1 Audio Recording System**
-  - [ ] 3.1.1 Implement real-time audio capture with sounddevice
-  - [ ] 3.1.2 Create audio stream management
-  - [ ] 3.1.3 Set up proper audio format (16kHz, mono, 16-bit)
+- [x] **3.1 Audio Recording System**
+  - [x] 3.1.1 Implement real-time audio capture with sounddevice
+  - [x] **3.1.2 Create robust audio stream management**
+    - [ ] **3.1.2.1 Device Disconnection Handling**
+      - [ ] 3.1.2.1.1 Detect USB microphone unplugging events
+      - [ ] 3.1.2.1.2 Implement automatic device reconnection attempts
+      - [ ] 3.1.2.1.3 Add fallback device selection when primary device fails
+      - [ ] 3.1.2.1.4 Create device change notification system
+      - [ ] 3.1.2.1.5 Handle device hot-plug scenarios gracefully
+    - [x] **3.1.2.2 Stream Error Recovery** ✅
+      - [x] 3.1.2.2.1 Implement stream underrun/overrun detection
+      - [x] 3.1.2.2.2 Add automatic stream restart on critical errors
+      - [x] 3.1.2.2.3 Create retry mechanism with exponential backoff
+      - [x] 3.1.2.2.4 Handle stream callback thread exceptions
+      - [x] 3.1.2.2.5 Implement graceful degradation on partial failures
+    - [ ] **3.1.2.3 Format Validation & Negotiation**
+      - [ ] 3.1.2.3.1 Validate device supports required audio format (16kHz, mono, 16-bit)
+      - [ ] 3.1.2.3.2 Implement sample rate negotiation for incompatible devices
+      - [ ] 3.1.2.3.3 Add channel count validation and conversion
+      - [ ] 3.1.2.3.4 Handle bit depth compatibility issues
+      - [ ] 3.1.2.3.5 Create format fallback strategies
+    - [ ] **3.1.2.4 Stream Health Monitoring**
+      - [ ] 3.1.2.4.1 Monitor audio processing latency
+      - [ ] 3.1.2.4.2 Track buffer underrun/overrun frequency
+      - [ ] 3.1.2.4.3 Implement stream quality metrics
+      - [ ] 3.1.2.4.4 Add performance degradation detection
+      - [ ] 3.1.2.4.5 Create health status reporting system
+    - [ ] **3.1.2.5 Resource Management**
+      - [ ] 3.1.2.5.1 Implement proper stream cleanup on errors
+      - [ ] 3.1.2.5.2 Add thread safety for stream operations
+      - [ ] 3.1.2.5.3 Handle memory leaks in long-running streams
+      - [ ] 3.1.2.5.4 Create resource usage monitoring
+      - [ ] 3.1.2.5.5 Implement graceful shutdown procedures
+  - [x] 3.1.3 Set up proper audio format (16kHz, mono, 16-bit)
   - [ ] 3.1.4 Add audio buffer handling and overflow protection
 
-- [ ] **3.2 Silence Detection**
-  - [ ] 3.2.1 Implement RMS-based silence detection algorithm
-  - [ ] 3.2.2 Create configurable silence threshold settings
-  - [ ] 3.2.3 Add silence duration tracking (5-second auto-stop)
-  - [ ] 3.2.4 Test silence detection accuracy
+- [x] **3.2 Silence Detection**
+  - [x] 3.2.1 Implement RMS-based silence detection algorithm
+  - [x] 3.2.2 Create configurable silence threshold settings
+  - [x] 3.2.3 Add silence duration tracking (5-second auto-stop)
+  - [x] 3.2.4 Test silence detection accuracy
 
 - [ ] **3.3 Key Controls**
   - [ ] 3.3.1 Implement Enter key handling (finish recording early)
@@ -457,7 +487,7 @@ For a detailed explanation of this architecture, see the **[Architecture Overvie
   - ✅ 2.4 Tabbed Settings Page (100% complete - tabbed dialog implemented)
   - ⏳ 2.5 Window Management (pending)
   - ✅ 2.6 System Tray & Application Lifecycle (100% complete - system tray working)
-- Phase 3: 0/4 tasks complete
+- Phase 3: 1/4 tasks complete (3.1 is partially complete)
 - Phase 4: 0/4 tasks complete
 - Phase 5: 0/4 tasks complete
 - Phase 6: 0/4 tasks complete
@@ -488,7 +518,7 @@ For a detailed explanation of this architecture, see the **[Architecture Overvie
   - ✅ User-editable vs system-only settings separation
   - ✅ Comprehensive error handling and recovery
   - ✅ Complete testing suite with backup/restore functionality
-- 🎯 **Next Priority**: Task 3.1 Audio Recording System - Implement real-time audio capture
+- 🎯 **Next Priority**: Task 3.1.2.1 - Implement device disconnection handling
 
 ---
 
@@ -528,3 +558,20 @@ pytest tests/
 black src/
 ```
 
+## 📚 Additional Documentation
+
+### Audio Robustness Implementation
+- **[Audio Robustness Guide](audio_robustness_guide.md)**: Comprehensive implementation guide with problem statements, solution strategies, and best practices
+- **[Audio Robustness Specification](audio_robustness_specification.md)**: Technical specification with detailed interfaces, testing requirements, and implementation timeline
+
+### Architecture and Design
+- **[Architecture Overview](architecture_overview.md)**: High-level system architecture and design principles
+- **[Directory Structure](directory_structure.md)**: Project organization and file structure
+- **[Development Rules](development_rules.md)**: Coding standards and development guidelines
+- **[Memory Management](memory_management.md)**: Memory management strategies and best practices
+- **[Linux Specific Assumptions](linux_specific_assumptions.md)**: Linux-specific considerations and requirements
+- **[Unified Configuration Solution](unified_configuration_solution.md)**: Configuration system design and implementation
+
+---
+
+## �� Success Criteria

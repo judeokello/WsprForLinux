@@ -146,6 +146,81 @@ class ConfigSchema:
             category="audio"
         ))
         
+        # Advanced silence detection settings
+        self._add_setting(SettingDefinition(
+            key="audio.silence_strategy",
+            type=SettingType.STRING,
+            access=SettingAccess.USER_EDITABLE,
+            default="hybrid",
+            description="Silence detection strategy",
+            allowed_values=["rms", "spectral", "adaptive", "hybrid"],
+            category="audio"
+        ))
+        
+        self._add_setting(SettingDefinition(
+            key="audio.noise_learning_duration",
+            type=SettingType.FLOAT,
+            access=SettingAccess.USER_EDITABLE,
+            default=3.0,
+            description="Duration to learn background noise",
+            min_value=1.0,
+            max_value=10.0,
+            unit="seconds",
+            category="audio"
+        ))
+        
+        self._add_setting(SettingDefinition(
+            key="audio.noise_margin",
+            type=SettingType.FLOAT,
+            access=SettingAccess.USER_EDITABLE,
+            default=1.5,
+            description="Multiplier above learned noise floor",
+            min_value=1.1,
+            max_value=3.0,
+            category="audio"
+        ))
+        
+        self._add_setting(SettingDefinition(
+            key="audio.adaptation_rate",
+            type=SettingType.FLOAT,
+            access=SettingAccess.ADVANCED,
+            default=0.1,
+            description="Rate of noise floor adaptation",
+            min_value=0.01,
+            max_value=0.5,
+            category="audio"
+        ))
+        
+        self._add_setting(SettingDefinition(
+            key="audio.min_speech_duration",
+            type=SettingType.FLOAT,
+            access=SettingAccess.ADVANCED,
+            default=0.5,
+            description="Minimum speech duration before silence detection",
+            min_value=0.1,
+            max_value=2.0,
+            unit="seconds",
+            category="audio"
+        ))
+        
+        self._add_setting(SettingDefinition(
+            key="audio.enable_adaptive_detection",
+            type=SettingType.BOOLEAN,
+            access=SettingAccess.USER_EDITABLE,
+            default=True,
+            description="Enable adaptive noise floor detection",
+            category="audio"
+        ))
+        
+        self._add_setting(SettingDefinition(
+            key="audio.enable_spectral_detection",
+            type=SettingType.BOOLEAN,
+            access=SettingAccess.ADVANCED,
+            default=True,
+            description="Enable spectral analysis for silence detection",
+            category="audio"
+        ))
+        
         self._add_setting(SettingDefinition(
             key="audio.save_path",
             type=SettingType.STRING,

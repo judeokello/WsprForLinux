@@ -1,6 +1,8 @@
 import sys
 import logging
 from typing import Optional
+import numpy as np
+import sounddevice as sd
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, 
     QLabel, QPushButton, QFrame, QSizePolicy
@@ -9,6 +11,8 @@ from PyQt6.QtCore import Qt, QEvent, pyqtSignal
 from PyQt6.QtGui import QFont, QCloseEvent, QKeyEvent
 from .waveform_widget import WaveformWidget
 from config import ConfigManager
+from audio.recorder import AudioRecorder
+import os
 
 class W4LMainWindow(QMainWindow):
     # Signal emitted when window is closed (but app continues running)
@@ -21,6 +25,9 @@ class W4LMainWindow(QMainWindow):
         self.logger: Optional[logging.Logger] = None  # Will be set up by main application
         self.config_manager = config_manager
         
+        # Audio Recorder setup
+        self.recorder = self._setup_recorder()
+
         # Window state
         self.is_recording = False
         
@@ -204,6 +211,31 @@ class W4LMainWindow(QMainWindow):
         
         self.move(x, y)
     
+    def _setup_recorder(self) -> Optional[AudioRecorder]:
+        """Initialize the AudioRecorder based on current config."""
+        try:
+            device_id = self.config_manager.get_config_value('audio', 'device_id')
+            if device_id is None:
+                device_id = sd.default.device[0] # Fallback to default input device
+
+            sample_rate = self.config_manager.get_config_value('audio', 'sample_rate', 16000)
+            channels = self.config_manager.get_config_value('audio', 'channels', 1)
+            
+            recorder = AudioRecorder(device_id=device_id, sample_rate=sample_rate, channels=channels)
+            # Connect the callback to update the waveform widget
+            recorder.audio_chunk_callback = self.handle_audio_chunk
+            return recorder
+        except Exception as e:
+            # Logger might not be initialized yet, so we print as a fallback
+            print(f"ERROR: Failed to initialize audio recorder: {e}")
+            if self.logger:
+                self.logger.error(f"Failed to initialize audio recorder: {e}")
+            return None
+
+    def handle_audio_chunk(self, chunk: np.ndarray):
+        """Callback to handle new audio data from the recorder."""
+        self.waveform_widget.update_waveform(chunk)
+
     def _open_settings(self):
         """Emit a signal to request the settings dialog."""
         if self.logger:
@@ -219,6 +251,28 @@ class W4LMainWindow(QMainWindow):
     
     def _start_recording(self):
         """Start recording."""
+        if not self.recorder:
+            if self.logger:
+                self.logger.error("Audio recorder not available. Cannot start recording.")
+            return
+
+        # Ensure recordings directory exists in file-based mode
+        capture_mode = self.config_manager.get_config_value('audio', 'capture_mode')
+        if capture_mode == 'file_based':
+            save_path = self.config_manager.get_config_value('audio', 'save_path')
+            recordings_dir = os.path.join(save_path, 'W4L-Recordings')
+            try:
+                os.makedirs(recordings_dir, exist_ok=True)
+                if self.logger:
+                    self.logger.info(f"Ensured recordings directory exists: {recordings_dir}")
+            except OSError as e:
+                if self.logger:
+                    self.logger.error(f"Failed to create recordings directory: {e}")
+                # Optionally, show an error to the user here
+                return
+
+        self.recorder.start()
+        self.waveform_widget.start_recording()
         self.is_recording = True
         self.record_button.setText("Stop Recording")
         self.record_button.setStyleSheet("""
@@ -242,6 +296,10 @@ class W4LMainWindow(QMainWindow):
     
     def _stop_recording(self):
         """Stop recording."""
+        if self.recorder:
+            self.recorder.stop()
+            
+        self.waveform_widget.stop_recording()
         self.is_recording = False
         self.record_button.setText("Start Recording")
         self.record_button.setStyleSheet("""

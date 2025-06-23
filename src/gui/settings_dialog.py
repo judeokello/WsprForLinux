@@ -43,15 +43,20 @@ class SettingsDialog(QDialog):
         # Create tabs
         audio_tab = QWidget()
         model_tab = QWidget()
+        silence_tab = QWidget()
         
         tab_widget.addTab(audio_tab, "Audio")
         tab_widget.addTab(model_tab, "Models")
+        tab_widget.addTab(silence_tab, "Silence Detection")
         
         # --- Populate Audio Tab ---
         self.setup_audio_tab(audio_tab)
         
         # --- Populate Model Tab ---
         self.setup_model_tab(model_tab)
+        
+        # --- Populate Silence Detection Tab ---
+        self.setup_silence_tab(silence_tab)
 
         # --- Common Buttons ---
         self.button_box = QDialogButtonBox(
@@ -159,6 +164,109 @@ class SettingsDialog(QDialog):
         # --- Connections for this tab ---
         self.open_model_path_button.clicked.connect(self.open_model_directory)
 
+    def setup_silence_tab(self, tab):
+        """Create and populate the Silence Detection settings tab."""
+        layout = QVBoxLayout(tab)
+        
+        # --- Basic Settings Group ---
+        basic_group = QGroupBox("Basic Settings")
+        basic_layout = QFormLayout(basic_group)
+        
+        # Silence threshold (convert from float to percentage for UI)
+        self.silence_threshold_spinbox = QSpinBox()
+        self.silence_threshold_spinbox.setRange(1, 100)
+        self.silence_threshold_spinbox.setSuffix("%")
+        self.silence_threshold_spinbox.setToolTip("Threshold for detecting silence (higher = more sensitive)")
+        
+        # Silence duration
+        self.silence_duration_spinbox = QSpinBox()
+        self.silence_duration_spinbox.setRange(1, 30)
+        self.silence_duration_spinbox.setSuffix(" seconds")
+        self.silence_duration_spinbox.setToolTip("How long to wait in silence before stopping recording")
+        
+        # Detection strategy dropdown
+        self.strategy_combo = QComboBox()
+        self.strategy_combo.addItem("Hybrid (Recommended)", "hybrid")
+        self.strategy_combo.addItem("RMS Energy", "rms")
+        self.strategy_combo.addItem("Spectral Analysis", "spectral")
+        self.strategy_combo.addItem("Adaptive Noise Floor", "adaptive")
+        self.strategy_combo.setToolTip("Method used to detect silence")
+        
+        basic_layout.addRow("Silence Threshold:", self.silence_threshold_spinbox)
+        basic_layout.addRow("Silence Duration:", self.silence_duration_spinbox)
+        basic_layout.addRow("Detection Strategy:", self.strategy_combo)
+        
+        # --- Adaptive Settings Group ---
+        adaptive_group = QGroupBox("Adaptive Noise Detection")
+        adaptive_layout = QFormLayout(adaptive_group)
+        
+        # Enable adaptive detection
+        self.enable_adaptive_checkbox = QComboBox()
+        self.enable_adaptive_checkbox.addItem("Enabled", True)
+        self.enable_adaptive_checkbox.addItem("Disabled", False)
+        self.enable_adaptive_checkbox.setToolTip("Learn and adapt to background noise like laptop fans")
+        
+        # Noise learning duration
+        self.noise_learning_spinbox = QSpinBox()
+        self.noise_learning_spinbox.setRange(1, 10)
+        self.noise_learning_spinbox.setSuffix(" seconds")
+        self.noise_learning_spinbox.setToolTip("Time to learn background noise when recording starts")
+        
+        # Noise margin
+        self.noise_margin_spinbox = QSpinBox()
+        self.noise_margin_spinbox.setRange(11, 30)
+        self.noise_margin_spinbox.setSuffix("x")
+        self.noise_margin_spinbox.setToolTip("Multiplier above learned noise floor (higher = less sensitive)")
+        
+        # Adaptation rate
+        self.adaptation_rate_spinbox = QSpinBox()
+        self.adaptation_rate_spinbox.setRange(1, 50)
+        self.adaptation_rate_spinbox.setSuffix("%")
+        self.adaptation_rate_spinbox.setToolTip("How quickly to adapt to new noise levels")
+        
+        adaptive_layout.addRow("Adaptive Detection:", self.enable_adaptive_checkbox)
+        adaptive_layout.addRow("Learning Duration:", self.noise_learning_spinbox)
+        adaptive_layout.addRow("Noise Margin:", self.noise_margin_spinbox)
+        adaptive_layout.addRow("Adaptation Rate:", self.adaptation_rate_spinbox)
+        
+        # --- Advanced Settings Group ---
+        advanced_group = QGroupBox("Advanced Settings")
+        advanced_layout = QFormLayout(advanced_group)
+        
+        # Enable spectral detection
+        self.enable_spectral_checkbox = QComboBox()
+        self.enable_spectral_checkbox.addItem("Enabled", True)
+        self.enable_spectral_checkbox.addItem("Disabled", False)
+        self.enable_spectral_checkbox.setToolTip("Use frequency analysis for better detection")
+        
+        # Minimum speech duration
+        self.min_speech_spinbox = QSpinBox()
+        self.min_speech_spinbox.setRange(1, 20)
+        self.min_speech_spinbox.setSuffix(" seconds")
+        self.min_speech_spinbox.setToolTip("Minimum speech duration before silence detection activates")
+        
+        advanced_layout.addRow("Spectral Analysis:", self.enable_spectral_checkbox)
+        advanced_layout.addRow("Min Speech Duration:", self.min_speech_spinbox)
+        
+        # --- Info Section ---
+        info_label = QLabel(
+            "💡 <b>How it works:</b><br>"
+            "• <b>Learning Phase:</b> First few seconds learn your background noise (laptop fan, etc.)<br>"
+            "• <b>Adaptive Threshold:</b> Sets detection level above your background noise<br>"
+            "• <b>Speech Detection:</b> Triggers when you speak above the adaptive threshold<br>"
+            "• <b>Silence Detection:</b> Triggers when audio returns to background noise level<br><br>"
+            "🎧 <b>Perfect for:</b> Laptop fans, air conditioning, office noise, etc."
+        )
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet("background-color: #f0f8ff; padding: 10px; border-radius: 5px;")
+        
+        # Add all groups to layout
+        layout.addWidget(basic_group)
+        layout.addWidget(adaptive_group)
+        layout.addWidget(advanced_group)
+        layout.addWidget(info_label)
+        layout.addStretch()
+
     def load_settings(self):
         """Load settings from ConfigManager and populate UI fields."""
         self.logger.info("Loading settings into dialog.")
@@ -190,6 +298,49 @@ class SettingsDialog(QDialog):
         # Load model settings
         self.load_model_info()
         
+        # Load silence detection settings
+        self.load_silence_settings()
+        
+    def load_silence_settings(self):
+        """Load silence detection settings from config."""
+        # Convert float threshold to percentage for UI
+        threshold = self.config_manager.get_config_value('audio', 'silence_threshold', 0.01)
+        threshold_percent = int(threshold * 1000)  # Convert 0.01 to 10%
+        self.silence_threshold_spinbox.setValue(threshold_percent)
+        
+        # Load other settings
+        silence_duration = self.config_manager.get_config_value('audio', 'silence_duration', 5.0)
+        self.silence_duration_spinbox.setValue(int(silence_duration))
+        
+        strategy = self.config_manager.get_config_value('audio', 'silence_strategy', 'hybrid')
+        index = self.strategy_combo.findData(strategy)
+        if index != -1:
+            self.strategy_combo.setCurrentIndex(index)
+        
+        # Adaptive settings
+        enable_adaptive = self.config_manager.get_config_value('audio', 'enable_adaptive_detection', True)
+        index = self.enable_adaptive_checkbox.findData(enable_adaptive)
+        if index != -1:
+            self.enable_adaptive_checkbox.setCurrentIndex(index)
+        
+        noise_learning = self.config_manager.get_config_value('audio', 'noise_learning_duration', 3.0)
+        self.noise_learning_spinbox.setValue(int(noise_learning))
+        
+        noise_margin = self.config_manager.get_config_value('audio', 'noise_margin', 1.5)
+        self.noise_margin_spinbox.setValue(int(noise_margin * 10))  # Convert 1.5 to 15
+        
+        adaptation_rate = self.config_manager.get_config_value('audio', 'adaptation_rate', 0.1)
+        self.adaptation_rate_spinbox.setValue(int(adaptation_rate * 100))  # Convert 0.1 to 10
+        
+        # Advanced settings
+        enable_spectral = self.config_manager.get_config_value('audio', 'enable_spectral_detection', True)
+        index = self.enable_spectral_checkbox.findData(enable_spectral)
+        if index != -1:
+            self.enable_spectral_checkbox.setCurrentIndex(index)
+        
+        min_speech = self.config_manager.get_config_value('audio', 'min_speech_duration', 0.5)
+        self.min_speech_spinbox.setValue(int(min_speech * 10))  # Convert 0.5 to 5
+        
     def apply_settings(self):
         """Save the current settings to the ConfigManager."""
         self.logger.info("Applying settings...")
@@ -204,8 +355,38 @@ class SettingsDialog(QDialog):
         self.config_manager.set_config_value('audio', 'buffer_size', self.buffer_size_spinbox.value())
         self.config_manager.set_config_value('audio', 'save_path', self.file_path_edit.text())
         
+        # Save silence detection settings
+        self.save_silence_settings()
+        
         self.logger.info("Settings applied and saved.")
         
+    def save_silence_settings(self):
+        """Save silence detection settings to config."""
+        # Convert percentage back to float
+        threshold_percent = self.silence_threshold_spinbox.value()
+        threshold = threshold_percent / 1000.0  # Convert 10% back to 0.01
+        self.config_manager.set_config_value('audio', 'silence_threshold', threshold)
+        
+        # Save other settings
+        self.config_manager.set_config_value('audio', 'silence_duration', float(self.silence_duration_spinbox.value()))
+        self.config_manager.set_config_value('audio', 'silence_strategy', self.strategy_combo.currentData())
+        
+        # Adaptive settings
+        self.config_manager.set_config_value('audio', 'enable_adaptive_detection', self.enable_adaptive_checkbox.currentData())
+        self.config_manager.set_config_value('audio', 'noise_learning_duration', float(self.noise_learning_spinbox.value()))
+        
+        noise_margin = self.noise_margin_spinbox.value() / 10.0  # Convert 15 back to 1.5
+        self.config_manager.set_config_value('audio', 'noise_margin', noise_margin)
+        
+        adaptation_rate = self.adaptation_rate_spinbox.value() / 100.0  # Convert 10 back to 0.1
+        self.config_manager.set_config_value('audio', 'adaptation_rate', adaptation_rate)
+        
+        # Advanced settings
+        self.config_manager.set_config_value('audio', 'enable_spectral_detection', self.enable_spectral_checkbox.currentData())
+        
+        min_speech = self.min_speech_spinbox.value() / 10.0  # Convert 5 back to 0.5
+        self.config_manager.set_config_value('audio', 'min_speech_duration', min_speech)
+
     def update_ui_visibility(self):
         """Show or hide settings based on other selections."""
         is_file_based = self.capture_mode_combo.currentData() == "file_based"

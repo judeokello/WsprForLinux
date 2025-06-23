@@ -21,6 +21,7 @@ import weakref
 
 from .device_config import AudioDeviceManager, AudioConfig
 from .memory_manager import MemoryMonitor, ResourceManager, AudioBufferTracker
+from .recorder import AudioRecorder, StreamStatus, StreamError
 
 
 class AudioBuffer:
@@ -189,30 +190,49 @@ class StreamingAudioManager:
         self.buffer = None
         self._setup_buffer()
         
+        # Enhanced audio recorder with error recovery
+        self.recorder = None
+        self._setup_recorder()
+        
         # Streaming state
         self.is_recording = False
-        self.stream = None
         self.audio_queue = queue.Queue()
+        self.stop_processing = threading.Event()
+        self.processing_thread = None
         
         # Callbacks
         self.on_audio_data: Optional[Callable[[np.ndarray], None]] = None
         self.on_buffer_full: Optional[Callable[[np.ndarray], None]] = None
-        
-        # Thread for processing audio data
-        self.processing_thread = None
-        self.stop_processing = threading.Event()
+        self.on_stream_error: Optional[Callable[[Exception], None]] = None
+        self.on_stream_recovered: Optional[Callable[[], None]] = None
     
     def _setup_buffer(self) -> None:
-        """Setup the audio buffer based on current configuration."""
-        buffer_samples = self.device_manager.get_buffer_size_samples()
+        """Set up audio buffer."""
+        buffer_samples = int(self.config.buffer_size_seconds * self.config.sample_rate)
         self.buffer = AudioBuffer(
             max_samples=buffer_samples,
             channels=self.config.channels,
             dtype=np.float32,
             buffer_tracker=self.buffer_tracker
         )
-        self.logger.info(f"Setup buffer with {buffer_samples} samples")
-    
+
+    def _setup_recorder(self) -> None:
+        """Set up the enhanced audio recorder with error recovery."""
+        device = self.device_manager.get_current_device()
+        device_id = device.device_id if device else None
+        
+        self.recorder = AudioRecorder(
+            device_id=device_id,
+            sample_rate=self.config.sample_rate,
+            channels=self.config.channels,
+            blocksize=1024
+        )
+        
+        # Set up callbacks
+        self.recorder.audio_chunk_callback = self._audio_callback
+        self.recorder.on_stream_error = self._on_stream_error
+        self.recorder.on_stream_recovered = self._on_stream_recovered
+
     def start_recording(self) -> bool:
         """
         Start recording audio.
@@ -231,67 +251,79 @@ class StreamingAudioManager:
                 self.logger.error("No valid audio device selected")
                 return False
             
-            # Setup stream
-            self.stream = sd.InputStream(
-                device=device.device_id,
-                channels=self.config.channels,
-                samplerate=self.config.sample_rate,
-                dtype=np.float32,
-                callback=self._audio_callback,
-                blocksize=1024  # Small blocks for low latency
-            )
-            
-            self.stream.start()
-            self.is_recording = True
+            # Update recorder with current device
+            if self.recorder:
+                self.recorder.device_id = device.device_id
+                
+                # Start the enhanced recorder
+                self.recorder.start()
             
             # Start processing thread
             self.stop_processing.clear()
             self.processing_thread = threading.Thread(target=self._process_audio_data, daemon=True)
             self.processing_thread.start()
             
-            self.logger.info("Started audio recording")
+            self.is_recording = True
+            self.logger.info("Started streaming audio recording")
             return True
             
+        except StreamError as e:
+            self.logger.error(f"Stream error during recording start: {e}")
+            return False
         except Exception as e:
             self.logger.error(f"Failed to start recording: {e}")
-            self._cleanup_resources()
             return False
-    
+
     def stop_recording(self) -> None:
         """Stop recording audio."""
         try:
             self.is_recording = False
+            
+            # Stop processing thread
             self.stop_processing.set()
-            
-            if self.stream:
-                self.stream.stop()
-                self.stream.close()
-                self.stream = None
-            
             if self.processing_thread and self.processing_thread.is_alive():
                 self.processing_thread.join(timeout=2.0)
             
-            self.logger.info("Stopped audio recording")
+            # Stop the recorder
+            if self.recorder:
+                self.recorder.stop()
+            
+            self.logger.info("Stopped streaming audio recording")
             
         except Exception as e:
             self.logger.error(f"Error stopping recording: {e}")
-        finally:
-            # Clean up any temporary resources
-            self.resource_manager.cleanup_temp_files()
-    
-    def _audio_callback(self, indata: np.ndarray, frames: int, 
-                       time_info: dict, status: sd.CallbackFlags) -> None:
-        """Callback for audio stream data."""
-        if status:
-            self.logger.warning(f"Audio callback status: {status}")
-        
+
+    def _audio_callback(self, indata: np.ndarray) -> None:
+        """Callback for audio stream data from the enhanced recorder."""
         if self.is_recording:
             # Put data in queue for processing
             try:
                 self.audio_queue.put_nowait(indata.copy())
             except queue.Full:
                 self.logger.warning("Audio queue full, dropping data")
-    
+
+    def _on_stream_error(self, error: Exception) -> None:
+        """Handle stream errors from the enhanced recorder."""
+        self.logger.error(f"Stream error detected: {error}")
+        
+        # Notify error callback
+        if self.on_stream_error:
+            try:
+                self.on_stream_error(error)
+            except Exception as e:
+                self.logger.error(f"Error in stream error callback: {e}")
+
+    def _on_stream_recovered(self) -> None:
+        """Handle stream recovery from the enhanced recorder."""
+        self.logger.info("Stream recovered successfully")
+        
+        # Notify recovery callback
+        if self.on_stream_recovered:
+            try:
+                self.on_stream_recovered()
+            except Exception as e:
+                self.logger.error(f"Error in stream recovery callback: {e}")
+
     def _process_audio_data(self) -> None:
         """Process audio data from the queue."""
         while not self.stop_processing.is_set():
@@ -315,7 +347,7 @@ class StreamingAudioManager:
                 continue
             except Exception as e:
                 self.logger.error(f"Error processing audio data: {e}")
-    
+
     def get_latest_audio(self, seconds: Optional[float] = None) -> np.ndarray:
         """
         Get the latest audio data.
@@ -336,7 +368,7 @@ class StreamingAudioManager:
             # Get specific number of seconds
             samples = int(seconds * self.config.sample_rate)
         return self.buffer.get_latest(samples)
-    
+
     def set_buffer_size(self, seconds: float) -> None:
         """
         Set buffer size in seconds.
@@ -359,7 +391,7 @@ class StreamingAudioManager:
         )
         
         self.logger.info(f"Buffer size set to {seconds} seconds ({buffer_samples} samples)")
-    
+
     def get_buffer_info(self) -> dict:
         """
         Get buffer information.
@@ -378,8 +410,25 @@ class StreamingAudioManager:
         # Add buffer tracker info
         info.update(self.buffer_tracker.get_buffer_info())
         
+        # Add recorder health info
+        if self.recorder:
+            info.update(self.recorder.get_health_info())
+        
         return info
-    
+
+    def get_stream_status(self) -> StreamStatus:
+        """Get the current stream status."""
+        return self.recorder.get_status() if self.recorder else StreamStatus.STOPPED
+
+    def is_stream_healthy(self) -> bool:
+        """Check if the stream is healthy."""
+        return self.recorder.is_healthy() if self.recorder else False
+
+    def force_stream_recovery(self) -> None:
+        """Force a stream recovery attempt."""
+        if self.recorder:
+            self.recorder.force_recovery()
+
     def _cleanup_resources(self) -> None:
         """Clean up resources to free memory."""
         try:
@@ -401,7 +450,7 @@ class StreamingAudioManager:
             
         except Exception as e:
             self.logger.error(f"Error during resource cleanup: {e}")
-    
+
     def cleanup(self) -> None:
         """Complete cleanup of all resources."""
         self.stop_recording()
@@ -410,6 +459,10 @@ class StreamingAudioManager:
         if self.buffer:
             self.buffer.cleanup()
             self.buffer = None
+        
+        if self.recorder:
+            self.recorder.stop()
+            self.recorder = None
         
         self.resource_manager.cleanup()
         self.logger.info("Streaming audio manager cleaned up")
