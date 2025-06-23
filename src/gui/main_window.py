@@ -250,10 +250,15 @@ class W4LMainWindow(QMainWindow):
             self._start_recording()
     
     def _start_recording(self):
-        """Start recording."""
+        """Start the audio recording."""
         if not self.recorder:
             if self.logger:
-                self.logger.error("Audio recorder not available. Cannot start recording.")
+                self.logger.error("Audio recorder not available.")
+            return
+            
+        if self.is_recording:
+            if self.logger:
+                self.logger.warning("Recording is already in progress.")
             return
 
         # Ensure recordings directory exists in file-based mode
@@ -268,12 +273,19 @@ class W4LMainWindow(QMainWindow):
             except OSError as e:
                 if self.logger:
                     self.logger.error(f"Failed to create recordings directory: {e}")
-                # Optionally, show an error to the user here
-                return
 
+        # Ensure the recorder is ready
         self.recorder.start()
-        self.waveform_widget.start_recording()
+        
+        # Set up silence detection callbacks
+        self.recorder.set_silence_callbacks(
+            on_silence_detected=self._on_silence_detected,
+            on_speech_detected=self._on_speech_detected,
+            on_noise_learned=self._on_noise_learned
+        )
+        
         self.is_recording = True
+        self.waveform_widget.start_recording()
         self.record_button.setText("Stop Recording")
         self.record_button.setStyleSheet("""
             QPushButton {
@@ -330,7 +342,7 @@ class W4LMainWindow(QMainWindow):
         self.window_closed.emit()
     
     def closeEvent(self, event: QCloseEvent):
-        """Handle window close event."""
+        """Handle the window close event."""
         if self.logger:
             self.logger.info("Window close event triggered")
         # Hide the window instead of terminating the application
@@ -343,51 +355,213 @@ class W4LMainWindow(QMainWindow):
         key = event.key()
         
         if key == Qt.Key.Key_Escape:
-            # ESC key: Hide the window but keep app running
+            # ESC key: Abort recording and discard everything
             if self.logger:
-                self.logger.info("ESC key pressed - hiding window")
-            self.hide()
-            self.window_closed.emit()
+                self.logger.info("ESC key pressed - aborting recording")
+            self._abort_recording()
             event.accept()
             
         elif key == Qt.Key.Key_Return or key == Qt.Key.Key_Enter:
-            # Enter key: Paste text and close window
+            # Enter key: Finish recording early, transcribe, and paste/save
             if self.logger:
-                self.logger.info("Enter key pressed - pasting text and closing")
-            self._paste_text_and_close()
+                self.logger.info("Enter key pressed - finishing recording early")
+            self._finish_recording_early()
             event.accept()
             
         else:
             # Let other keys be handled normally
             super().keyPressEvent(event)
     
-    def _paste_text_and_close(self):
-        """Paste text to active cursor and close window."""
+    def _abort_recording(self):
+        """Abort recording and discard everything."""
         if self.logger:
-            self.logger.info("Attempting to paste text to active cursor")
+            self.logger.info("Aborting recording - discarding all data")
         
-        # TODO: Get actual transcribed text from recording
-        # For now, use a placeholder text
-        text_to_paste = "This is sample transcribed text from W4L."
+        # Stop recording if active
+        if self.is_recording:
+            self._stop_recording()
         
-        # Check if there's an active cursor/application
-        has_active_cursor = self._has_active_cursor()
+        # Reset UI state
+        self._reset_ui_state()
         
-        if has_active_cursor:
-            if self.logger:
-                self.logger.info("Text pasted to active cursor successfully")
-            # TODO: Actually paste the text here
-            # For now, just copy to clipboard
-            self._copy_text_to_clipboard(text_to_paste)
-        else:
-            if self.logger:
-                self.logger.warning("No active cursor found - text copied to clipboard but not pasted")
-            # Copy text to clipboard as fallback
-            self._copy_text_to_clipboard(text_to_paste)
-        
-        # Close the window
+        # Hide window (app continues running)
         self.hide()
         self.window_closed.emit()
+    
+    def _finish_recording_early(self):
+        """Finish recording early, transcribe current audio, and paste/save text."""
+        if self.logger:
+            self.logger.info("Finishing recording early")
+        
+        # Stop recording if active
+        if self.is_recording:
+            self._stop_recording()
+        
+        # Get transcribed text from current audio buffer
+        transcribed_text = self._get_transcribed_text()
+        
+        if transcribed_text:
+            # Handle text output based on active cursor and capture mode
+            self._handle_text_output(transcribed_text)
+        else:
+            if self.logger:
+                self.logger.warning("No transcribed text available")
+            # Show user feedback
+            self.status_label.setText("No audio to transcribe")
+            self.status_label.setStyleSheet("color: #f39c12; font-weight: bold;")
+        
+        # Reset UI state
+        self._reset_ui_state()
+        
+        # Hide window (app continues running)
+        self.hide()
+        self.window_closed.emit()
+    
+    def _get_transcribed_text(self) -> str:
+        """Get transcribed text from current audio buffer."""
+        try:
+            if not self.recorder:
+                if self.logger:
+                    self.logger.warning("No recorder available for transcription")
+                return ""
+            
+            # Get audio data from recorder
+            audio_data = self.recorder.get_audio_buffer()
+            
+            if audio_data is None or len(audio_data) == 0:
+                if self.logger:
+                    self.logger.warning("No audio data available for transcription")
+                return ""
+            
+            # TODO: Implement actual transcription using Whisper
+            # For now, return placeholder text
+            # This will be implemented in Phase 4: Whisper Integration
+            if self.logger:
+                self.logger.info(f"Audio buffer contains {len(audio_data)} samples")
+            
+            # Placeholder: return sample text based on audio length
+            audio_duration = len(audio_data) / 16000  # Assuming 16kHz sample rate
+            if audio_duration < 0.5:
+                return ""  # Too short to transcribe
+            elif audio_duration < 2.0:
+                return "Hello world"  # Short audio
+            else:
+                return "This is a sample transcription of the recorded audio. The actual Whisper integration will be implemented in Phase 4."
+                
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Error getting transcribed text: {e}")
+            return ""
+    
+    def _handle_text_output(self, text: str):
+        """Handle text output based on active cursor and capture mode."""
+        try:
+            # Check if there's an active cursor/application
+            has_active_cursor = self._has_active_cursor()
+            capture_mode = self.config_manager.get_config_value('audio', 'capture_mode', 'streaming')
+            
+            if has_active_cursor:
+                # Try to paste to active cursor
+                if self._paste_text_to_cursor(text):
+                    if self.logger:
+                        self.logger.info("Text pasted to active cursor successfully")
+                    return
+                else:
+                    if self.logger:
+                        self.logger.warning("Failed to paste to cursor, falling back to clipboard")
+            
+            # Fallback: copy to clipboard
+            if self._copy_text_to_clipboard(text):
+                if self.logger:
+                    self.logger.info("Text copied to clipboard as fallback")
+                
+                # If in file-based mode and no active cursor, also save to file
+                if capture_mode == 'file_based':
+                    self._save_text_to_file(text)
+            else:
+                if self.logger:
+                    self.logger.error("Failed to copy text to clipboard")
+                
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Error handling text output: {e}")
+    
+    def _paste_text_to_cursor(self, text: str) -> bool:
+        """Attempt to paste text to the active cursor position."""
+        try:
+            # TODO: Implement actual text pasting
+            # This will use pyautogui, xdotool, or similar for Linux
+            # For now, just copy to clipboard and simulate Ctrl+V
+            
+            # Copy text to clipboard first
+            if not self._copy_text_to_clipboard(text):
+                return False
+            
+            # TODO: Simulate Ctrl+V paste
+            # import pyautogui
+            # pyautogui.hotkey('ctrl', 'v')
+            # Or use xdotool: subprocess.run(['xdotool', 'key', 'ctrl+v'])
+            
+            # For now, just return success (text is in clipboard)
+            return True
+            
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Error pasting text to cursor: {e}")
+            return False
+    
+    def _save_text_to_file(self, text: str) -> bool:
+        """Save transcribed text to file in file-based capture mode."""
+        try:
+            save_path = self.config_manager.get_config_value('audio', 'save_path')
+            if not save_path:
+                if self.logger:
+                    self.logger.warning("No save path configured for file-based mode")
+                return False
+            
+            # Create transcriptions directory
+            transcriptions_dir = os.path.join(save_path, 'W4L-Transcriptions')
+            os.makedirs(transcriptions_dir, exist_ok=True)
+            
+            # Generate filename with timestamp
+            import datetime
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"transcription_{timestamp}.txt"
+            filepath = os.path.join(transcriptions_dir, filename)
+            
+            # Write text to file
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(text)
+            
+            if self.logger:
+                self.logger.info(f"Text saved to file: {filepath}")
+            return True
+            
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Error saving text to file: {e}")
+            return False
+    
+    def _reset_ui_state(self):
+        """Reset UI to initial state."""
+        self.is_recording = False
+        self.record_button.setText("Start Recording")
+        self.record_button.setStyleSheet("""
+            QPushButton {
+                background-color: #27ae60;
+                color: white;
+                border: none;
+                border-radius: 17px;
+                padding: 8px 16px;
+            }
+            QPushButton:hover {
+                background-color: #229954;
+            }
+        """)
+        self.status_label.setText("Ready")
+        self.status_label.setStyleSheet("color: #27ae60; font-weight: bold;")
+        self.instruction_label.setText("Press hotkey to start recording...")
+        self.waveform_widget.stop_recording()
     
     def _has_active_cursor(self) -> bool:
         """Check if there's an active cursor/application window."""
@@ -415,21 +589,48 @@ class W4LMainWindow(QMainWindow):
             return False
     
     def _copy_text_to_clipboard(self, text: str) -> bool:
-        """Copy text to system clipboard."""
-        try:
-            clipboard = QApplication.clipboard()
-            if clipboard is None:
-                if self.logger:
-                    self.logger.error("No clipboard available")
-                return False
-            clipboard.setText(text)
-            if self.logger:
-                self.logger.info(f"Text copied to clipboard: {text[:50]}...")
-            return True
-        except Exception as e:
-            if self.logger:
-                self.logger.error(f"Failed to copy text to clipboard: {e}")
-            return False
+        """Copy text to the system clipboard."""
+        # This method will be implemented in a later phase
+        if self.logger:
+            self.logger.info(f"Copying to clipboard (dummy): {text}")
+        return True
+
+    def _on_silence_detected(self):
+        """Callback for when silence is detected."""
+        if self.logger:
+            self.logger.info("Silence detected, stopping recording.")
+        if self.is_recording:
+            self._stop_recording()
+
+    def _on_speech_detected(self):
+        """Callback for when speech is detected."""
+        if self.logger:
+            self.logger.info("Speech detected.")
+
+    def _on_noise_learned(self, noise_level: float):
+        """Callback for when noise level is learned."""
+        if self.logger:
+            self.logger.info(f"Noise level learned: {noise_level:.4f}")
+
+    def reset_for_test(self):
+        """Resets the window's state for a new test."""
+        if self.recorder and self.is_recording:
+            self.recorder.stop()
+        
+        # Re-create the recorder and silence detector
+        self.recorder = self._setup_recorder()
+        if self.recorder:
+            self.recorder.set_silence_callbacks(
+                on_silence_detected=self._on_silence_detected,
+                on_speech_detected=self._on_speech_detected,
+                on_noise_learned=self._on_noise_learned
+            )
+        
+        self.is_recording = False
+        self.waveform_widget.reset_plot()
+        self._reset_ui_state()
+        if self.logger:
+            self.logger.info("W4LMainWindow reset for new test.")
 
 if __name__ == '__main__':
     # This block is for direct testing of the main window

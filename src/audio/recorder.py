@@ -471,15 +471,21 @@ class AudioRecorder:
         self.logger.debug("Silence detection callbacks updated")
     
     def _on_silence_detected(self):
-        """Internal callback for silence detection."""
-        self.logger.info("Silence detected")
+        """
+        Internal handler for when silence is detected by the SilenceDetector.
+        This method stops the recording and invokes the public callback if it's set.
+        """
+        self.logger.info("Silence detected by SilenceDetector.")
         
-        # Forward to external callback
+        if self.is_recording:
+            self.logger.info("Stopping recording due to detected silence.")
+            self.stop()
+        
         if self.on_silence_detected:
             try:
                 self.on_silence_detected()
             except Exception as e:
-                self.logger.error(f"Error in silence detected callback: {e}")
+                self.logger.error(f"Error in on_silence_detected callback: {e}")
     
     def _on_speech_detected(self):
         """Internal callback for speech detection."""
@@ -501,4 +507,39 @@ class AudioRecorder:
             try:
                 self.on_noise_learned(noise_level)
             except Exception as e:
-                self.logger.error(f"Error in noise learned callback: {e}") 
+                self.logger.error(f"Error in noise learned callback: {e}")
+    
+    def get_audio_buffer(self) -> Optional[np.ndarray]:
+        """
+        Get the current audio buffer for transcription.
+        
+        Returns:
+            Audio data as numpy array, or None if no data available
+        """
+        try:
+            # Get audio buffer from silence detector
+            if hasattr(self.silence_detector, 'audio_buffer') and self.silence_detector.audio_buffer:
+                # Convert deque to numpy array
+                audio_data = np.array(list(self.silence_detector.audio_buffer))
+                if len(audio_data) > 0:
+                    self.logger.debug(f"Retrieved audio buffer with {len(audio_data)} samples")
+                    return audio_data
+                else:
+                    self.logger.debug("Audio buffer is empty")
+                    return None
+            else:
+                self.logger.debug("No audio buffer available")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"Error getting audio buffer: {e}")
+            return None
+    
+    def clear_audio_buffer(self) -> None:
+        """Clear the audio buffer."""
+        try:
+            if hasattr(self.silence_detector, 'audio_buffer'):
+                self.silence_detector.audio_buffer.clear()
+                self.logger.debug("Audio buffer cleared")
+        except Exception as e:
+            self.logger.error(f"Error clearing audio buffer: {e}") 

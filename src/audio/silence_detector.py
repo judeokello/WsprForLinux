@@ -189,59 +189,51 @@ class SilenceDetector:
         Args:
             window: Audio window to analyze
         """
-        # Calculate various metrics
         rms_value = self._calculate_rms(window)
         spectral_value = self._calculate_spectral_energy(window)
-        energy_value = self._calculate_energy(window)
         
-        # Store for adaptation
         self.rms_history.append(rms_value)
         self.spectral_history.append(spectral_value)
         
-        # Update adaptive noise floor during learning phase
+        current_time = time.time()
+
         if self.is_learning:
             self._update_noise_floor(rms_value, spectral_value)
-        
-        # Determine if this is speech or silence
-        is_speech = self._detect_speech(rms_value, spectral_value, energy_value)
-        
-        # Update state
-        current_time = time.time()
-        
+            if self.noise_samples >= self.min_noise_samples:
+                self._finalize_noise_learning()
+                self.is_learning = False  # Transition out of learning state
+                self.silence_start_time = current_time
+            return
+
+        is_speech = self._detect_speech(rms_value, spectral_value, 0)
+
         if is_speech:
+            self.silence_start_time = 0.0
             if not self.speech_detected:
                 self.speech_detected = True
                 self.last_speech_time = current_time
-                self.silence_start_time = 0.0
-                
-                # End learning phase after first speech
-                if self.is_learning:
-                    self.is_learning = False
-                    self._finalize_noise_learning()
-                
-                # Notify speech detected
                 if self.on_speech_detected:
                     try:
                         self.on_speech_detected()
                     except Exception as e:
                         self.logger.error(f"Error in speech detected callback: {e}")
         else:
-            if self.speech_detected:
-                # Check if we've been silent long enough
-                if self.silence_start_time == 0.0:
-                    self.silence_start_time = current_time
-                
-                silence_duration = current_time - self.silence_start_time
-                speech_duration = self.last_speech_time - (self.silence_start_time - silence_duration)
-                
-                # Only trigger silence if we had enough speech and enough silence
-                if (speech_duration >= self.config.min_speech_duration and 
-                    silence_duration >= self.config.silence_duration):
+            if self.silence_start_time == 0.0:
+                self.silence_start_time = current_time
+
+            if (current_time - self.silence_start_time) >= self.config.silence_duration:
+                # A lock is needed here to prevent a race condition where the callback
+                # is fired multiple times before the stream is stopped.
+                with self._lock:
+                    if not self.is_active:
+                        return
+
+                    self.logger.info(f"Silence threshold of {self.config.silence_duration}s reached.")
                     
-                    self.speech_detected = False
-                    self.detection_count += 1
+                    # Mark as inactive immediately to prevent re-entry.
+                    # The recorder will call stop() later, but this is a failsafe.
+                    self.is_active = False
                     
-                    # Notify silence detected
                     if self.on_silence_detected:
                         try:
                             self.on_silence_detected()

@@ -150,6 +150,10 @@ class WaveformWidget(QWidget):
         
         self.logger.info("Waveform widget stopped recording mode")
     
+    def reset_plot(self):
+        """Reset the plot to its initial state."""
+        self.clear_audio_data()
+    
     def clear_audio_data(self):
         """Clear the audio data and show flatline."""
         self.plot_data = np.zeros(self.max_points, dtype=np.float32)
