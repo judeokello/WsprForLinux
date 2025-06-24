@@ -97,7 +97,11 @@ class WaveformWidget(QWidget):
         
         # Set axis ranges
         self.plot_widget.setYRange(-1, 1)
-        self.plot_widget.setXRange(0, self.max_points / self.sample_rate if self.sample_rate > 0 else 1)
+        # Defensive programming: handle None sample_rate
+        if self.sample_rate is not None and self.sample_rate > 0:
+            self.plot_widget.setXRange(0, self.max_points / self.sample_rate)
+        else:
+            self.plot_widget.setXRange(0, 1)
     
     def _show_flatline(self):
         """Show flatline display when not recording."""
@@ -167,7 +171,7 @@ class WaveformWidget(QWidget):
             sample_rate: Audio sample rate in Hz
         """
         self.sample_rate = sample_rate
-        if self.sample_rate > 0:
+        if self.sample_rate is not None and self.sample_rate > 0:
             self.plot_widget.setXRange(0, self.max_points / self.sample_rate)
         self.logger.debug(f"Sample rate set to {sample_rate} Hz")
     
@@ -179,7 +183,7 @@ class WaveformWidget(QWidget):
             max_points: Maximum number of points
         """
         self.max_points = max_points
-        if self.sample_rate > 0:
+        if self.sample_rate is not None and self.sample_rate > 0:
             self.plot_widget.setXRange(0, self.max_points / self.sample_rate)
         self.logger.debug(f"Max points set to {max_points}")
     

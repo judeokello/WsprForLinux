@@ -14,9 +14,10 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QComboBox, QSpinBox,
     QLineEdit, QPushButton, QDialogButtonBox, QWidget, QHBoxLayout,
     QFileDialog, QLabel, QTabWidget, QGroupBox, QListWidget, QListWidgetItem,
-    QProgressBar
+    QProgressBar, QMessageBox
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject
+from datetime import datetime
 
 from audio.device_detector import AudioDeviceDetector, AudioDevice
 from transcription.model_manager import ModelManager
@@ -34,12 +35,16 @@ class DownloadWorker(QObject):
         super().__init__(parent)
         self.model_manager = model_manager
         self.model_name = model_name
+        self.logger = logging.getLogger("w4l.gui.download_worker")
 
     def run(self):
         try:
+            self.logger.info(f"DownloadWorker: Starting download for {self.model_name}")
             self.model_manager.download_model(self.model_name, self.progress.emit)
+            self.logger.info(f"DownloadWorker: Download and verification complete for {self.model_name}")
             self.verification_complete.emit(True)
         except Exception as e:
+            self.logger.error(f"DownloadWorker: Error downloading {self.model_name}: {e}")
             self.error.emit(str(e))
         finally:
             self.finished.emit()
@@ -62,7 +67,7 @@ class ModelListItem(QWidget):
             size_mb = size_bytes / (1024 * 1024)
             self.size_label = QLabel(f"{size_mb:.1f} MB")
         else:
-            self.size_label = QLabel("N/A")
+            self.size_label = QLabel("Unknown")
 
         self.status_label = QLabel()
         self.action_button = QPushButton()
@@ -88,27 +93,31 @@ class ModelListItem(QWidget):
         if is_verified:
             self.status_label.setText("Downloaded")
             self.status_label.setStyleSheet("color: green;")
+            self.status_label.setToolTip("Model is downloaded and verified.")
             self.action_button.setText("Delete")
             self.action_button.setEnabled(True)
             self.progress_bar.setVisible(False)
         elif is_downloaded and not is_verified:
             self.status_label.setText("Corrupted")
             self.status_label.setStyleSheet("color: orange;")
+            self.status_label.setToolTip("Model file is present but failed verification. Please re-download.")
             self.action_button.setText("Delete")
             self.action_button.setEnabled(True)
             self.progress_bar.setVisible(False)
         else:
-            self.status_label.setText("Not Available")
+            self.status_label.setText("Not downloaded")
             self.status_label.setStyleSheet("color: #888;")
+            self.status_label.setToolTip("Model is not downloaded.")
             self.action_button.setText("Download")
             self.action_button.setEnabled(True)
             self.progress_bar.setVisible(False)
     
     def handle_action_click(self):
+        import logging
+        logging.getLogger("w4l.gui.model_list_item").info(f"Action button clicked for model: {self.model_info['name']} (action: {self.action_button.text()})")
         if self.action_button.text() == "Download":
             self.parent_dialog.start_model_download(self)
         elif self.action_button.text() == "Delete":
-            # TODO: Implement deletion
             self.parent_dialog.delete_model(self)
 
     def download_started(self):
@@ -140,7 +149,7 @@ class ModelListItem(QWidget):
 class SettingsDialog(QDialog):
     """Settings dialog window."""
     
-    def __init__(self, config_manager: ConfigManager, model_manager: ModelManager, parent=None):
+    def __init__(self, config_manager: ConfigManager, model_manager: ModelManager, metadata_updated_signal=None, parent=None):
         super().__init__(parent)
         self.config_manager = config_manager
         self.model_manager = model_manager
@@ -195,6 +204,14 @@ class SettingsDialog(QDialog):
         
         self.load_settings()
         self.update_ui_visibility()
+
+        # TODO: This blocks the UI thread because it makes network requests.
+        # This should be moved to a background thread.
+        self.populate_model_list()
+
+        # Connect to metadata updated signal if provided
+        if metadata_updated_signal is not None:
+            metadata_updated_signal.connect(self._on_metadata_updated)
 
     def setup_audio_tab(self, tab):
         """Create and populate the Audio settings tab."""
@@ -260,10 +277,22 @@ class SettingsDialog(QDialog):
         """Create and populate the Model settings tab."""
         layout = QVBoxLayout(tab)
         
+        # Always refresh metadata from disk before showing the model list
+        self.model_manager.metadata_manager.refresh_metadata(fetch_online=False)
+
         # --- Downloaded Models Group ---
         models_group = QGroupBox("Downloaded Models")
         models_layout = QVBoxLayout(models_group)
         
+        # Add refresh button and last refreshed label
+        refresh_layout = QHBoxLayout()
+        self.refresh_models_button = QPushButton("Refresh models")
+        self.last_refreshed_label = QLabel()
+        refresh_layout.addWidget(self.refresh_models_button)
+        refresh_layout.addWidget(self.last_refreshed_label)
+        refresh_layout.addStretch(1)
+        models_layout.addLayout(refresh_layout)
+
         self.model_list_widget = QListWidget()
         models_layout.addWidget(self.model_list_widget)
         
@@ -283,6 +312,8 @@ class SettingsDialog(QDialog):
         
         # --- Connections for this tab ---
         self.open_model_path_button.clicked.connect(self.open_model_directory)
+        self.refresh_models_button.clicked.connect(self.handle_refresh_models)
+        self.update_last_refreshed_label()
 
     def setup_silence_tab(self, tab):
         """Create and populate the Silence Detection settings tab."""
@@ -561,7 +592,7 @@ class SettingsDialog(QDialog):
             self.model_list_widget.addItem("Error loading model list.")
 
     def start_model_download(self, item_widget: ModelListItem):
-        """Start a download for a model in a background thread."""
+        self.logger.info(f"start_model_download called for model: {item_widget.model_info['name']}")
         model_name = item_widget.model_info['name']
         
         if model_name in self.download_threads and self.download_threads[model_name].isRunning():
@@ -573,15 +604,21 @@ class SettingsDialog(QDialog):
         worker.moveToThread(thread)
 
         def on_finished(success, error_msg=None):
+            self.logger.info(f"Download finished for {model_name}, success={success}, error={error_msg}")
             item_widget.download_finished(success, error_msg)
             if model_name in self.download_threads:
                 del self.download_threads[model_name]
-        
+            self.populate_model_list()
+            self.update_last_refreshed_label()
+
         def on_success(verified):
+            self.logger.info(f"Download success for {model_name}, verified={verified}")
             on_finished(verified)
 
         def on_error(msg):
+            self.logger.error(f"Download error for {model_name}: {msg}")
             on_finished(False, msg)
+            QMessageBox.critical(self, "Model Download Error", f"Failed to download {model_name}: {msg}")
 
         # Connections
         thread.started.connect(worker.run)
@@ -596,21 +633,62 @@ class SettingsDialog(QDialog):
         thread.start()
         self.download_threads[model_name] = thread
         item_widget.download_started()
+        self.logger.info(f"Download thread started for {model_name}")
 
     def delete_model(self, item_widget: ModelListItem):
-        """Delete a model file."""
+        """Delete a model file and update metadata immediately."""
         model_info = item_widget.model_info
         file_path = model_info.get('filepath')
+        model_name = model_info.get('name')
         if file_path and os.path.exists(file_path):
             try:
                 os.remove(file_path)
                 self.logger.info(f"Deleted model: {file_path}")
+                # Update metadata to not_downloaded and preserve history
+                meta = self.model_manager.metadata_manager.data["models"].get(model_name)
+                if meta:
+                    now = datetime.utcnow().isoformat() + 'Z'
+                    meta["status"] = "not_downloaded"
+                    # Do not remove history
+                    self.model_manager.metadata_manager.save_metadata()
                 model_info['is_downloaded'] = False
                 model_info['is_verified'] = False
                 item_widget.update_status()
+                self.populate_model_list()
+                self.update_last_refreshed_label()
             except Exception as e:
                 self.logger.error(f"Failed to delete model {file_path}: {e}")
 
     def accept(self):
         self.apply_settings()
-        super().accept() 
+        super().accept()
+
+    def _on_metadata_updated(self):
+        # Only refresh if dialog is visible
+        if self.isVisible():
+            self.logger.info("Model metadata updated, refreshing model list.")
+            self.populate_model_list()
+
+    def handle_refresh_models(self):
+        self.logger.info("Manual model metadata refresh triggered by user.")
+        self.model_manager.metadata_manager.refresh_metadata(fetch_online=True)
+        self.populate_model_list()
+        self.update_last_refreshed_label()
+
+    def update_last_refreshed_label(self):
+        last_refreshed = self.model_manager.metadata_manager.data.get("last_refreshed")
+        if last_refreshed:
+            self.last_refreshed_label.setText(f"Last refreshed: {last_refreshed}")
+        else:
+            self.last_refreshed_label.setText("Last refreshed: unknown")
+
+    def closeEvent(self, event):
+        # Ensure all download threads are finished before closing
+        self.logger.info("SettingsDialog: Closing, waiting for download threads to finish.")
+        for model_name, thread in list(self.download_threads.items()):
+            if thread.isRunning():
+                self.logger.info(f"Waiting for download thread to finish: {model_name}")
+                thread.quit()
+                thread.wait()
+        self.download_threads.clear()
+        super().closeEvent(event) 

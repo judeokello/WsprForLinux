@@ -294,7 +294,7 @@ class ConfigSchema:
             key="transcription.model",
             type=SettingType.STRING,
             access=SettingAccess.USER_EDITABLE,
-            default="base",
+            default="tiny",
             description="Whisper model size",
             allowed_values=["tiny", "base", "small", "medium", "large"],
             category="transcription"

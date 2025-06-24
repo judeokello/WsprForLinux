@@ -13,8 +13,9 @@ import logging
 import setproctitle
 import psutil
 import atexit
+import traceback
 from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QMessageBox
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal, QTimer
 from PyQt6.QtGui import QIcon, QAction
 from gui.main_window import W4LMainWindow
 from gui.settings_dialog import SettingsDialog
@@ -23,6 +24,9 @@ from transcription.model_manager import ModelManager
 
 class W4LApplication(QObject):
     """Main application class that manages the system tray and GUI."""
+    
+    # Signal emitted when model metadata is updated (for settings dialog refresh)
+    model_metadata_updated = pyqtSignal()
     
     def __init__(self):
         super().__init__()
@@ -79,6 +83,20 @@ class W4LApplication(QObject):
         # Initialize model manager
         self.model_manager = ModelManager()
         self.logger.info("Model manager initialized")
+        
+        # Connect metadata update callback to signal
+        self.model_manager.metadata_manager.set_on_update_callback(self._emit_metadata_updated)
+        
+        # Background model metadata check on startup
+        if self.model_manager.metadata_manager.needs_update():
+            self.logger.info("Triggering immediate model metadata background check.")
+            self.model_manager.trigger_background_metadata_update()
+        
+        # Set up periodic timer for background checks
+        self.metadata_timer = QTimer()
+        self.metadata_timer.setInterval(60 * 60 * 1000)  # Check every hour
+        self.metadata_timer.timeout.connect(self._periodic_metadata_check)
+        self.metadata_timer.start()
         
         # Application state
         self.main_window = None
@@ -233,6 +251,14 @@ class W4LApplication(QObject):
         # - Save settings
         # - Clean up temporary files
 
+    def _periodic_metadata_check(self):
+        if self.model_manager.metadata_manager.needs_update():
+            self.logger.info("Periodic check: triggering model metadata background update.")
+            self.model_manager.trigger_background_metadata_update()
+
+    def _emit_metadata_updated(self):
+        self.model_metadata_updated.emit()
+
     def run(self):
         """Run the application."""
         self.logger.info("Starting W4L application")
@@ -250,7 +276,9 @@ def main():
         app = W4LApplication()
         return app.run()
     except Exception as e:
-        logging.error(f"Application failed to start: {e}")
+        logger = logging.getLogger()
+        logger.error(f"Application failed to start: {e}")
+        traceback.print_exc()
         return 1
 
 if __name__ == "__main__":

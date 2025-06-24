@@ -39,22 +39,30 @@ class ModelLoadWorker(QObject):
         self.model_name = model_name
         self.old_model = old_model
         self.config_manager = config_manager
+        self.logger = logging.getLogger(__name__)
 
     def run(self):
         try:
+            self.logger.info(f"ModelLoadWorker: Starting to load model '{self.model_name}'")
+            
             # Unload old model
             if self.old_model:
+                self.logger.debug("ModelLoadWorker: Unloading old model")
                 del self.old_model
                 gc.collect()
 
             # Load new model
+            self.logger.info(f"ModelLoadWorker: Loading model '{self.model_name}' with whisper.load_model()")
             model = whisper.load_model(self.model_name)
+            self.logger.info(f"ModelLoadWorker: Successfully loaded model '{self.model_name}'")
             
             # Update config
+            self.logger.debug(f"ModelLoadWorker: Updating config to use model '{self.model_name}'")
             self.config_manager.set_config_value('transcription', 'model', self.model_name)
             
             self.finished.emit(model)
         except Exception as e:
+            self.logger.error(f"ModelLoadWorker: Failed to load model '{self.model_name}': {e}")
             self.error.emit(str(e))
 
 class W4LMainWindow(QMainWindow):
@@ -270,27 +278,65 @@ class W4LMainWindow(QMainWindow):
     
     def _populate_model_dropdown(self):
         self.model_combo.clear()
-        
-        # Get downloaded and verified models
         all_models = self.model_manager.list_models()
         available_models = [m for m in all_models if m.get('is_verified')]
-        
+
+        if self.logger:
+            self.logger.debug(f"Found {len(all_models)} total models, {len(available_models)} verified models")
+            for model in all_models:
+                self.logger.debug(f"Model '{model['name']}': downloaded={model.get('is_downloaded')}, verified={model.get('is_verified')}")
+
         if not available_models:
             self.model_combo.addItem("No models found")
             self.model_combo.setEnabled(False)
+            self.record_button.setEnabled(False)
+            self.status_label.setText("No models available. Please go to Settings and download a model.")
+            if self.logger:
+                self.logger.warning("No verified models found - dropdown and recording disabled")
             return
-            
+
         self.model_combo.setEnabled(True)
+        self.record_button.setEnabled(True)
         for model in available_models:
-            size_mb = model.get('size_bytes', 0) / (1024 * 1024)
-            display_text = f"{model['name']} ({size_mb:.1f} MB)"
+            size_bytes = model.get('size_bytes', 0)
+            if not size_bytes:
+                size_str = 'Unknown size'
+            else:
+                size_mb = size_bytes / (1024 * 1024)
+                size_str = f'{size_mb:.1f} MB'
+            display_text = f"{model['name']} ({size_str})"
             self.model_combo.addItem(display_text, userData=model)
-            
+            if self.logger:
+                self.logger.debug(f"Added model to dropdown: {display_text}")
+
         # Set current model from config
-        current_model_name = self.config_manager.get_config_value('transcription', 'model', 'base')
-        index = self.model_combo.findText(current_model_name, Qt.MatchFlag.MatchContains)
-        if index != -1:
-            self.model_combo.setCurrentIndex(index)
+        current_model_name = self.config_manager.get_config_value('transcription', 'model', 'tiny')
+        if self.logger:
+            self.logger.debug(f"Current model from config: {current_model_name}")
+
+        found_index = -1
+        for i in range(self.model_combo.count()):
+            model_data = self.model_combo.itemData(i)
+            if model_data and model_data['name'] == current_model_name:
+                found_index = i
+                break
+
+        if found_index != -1:
+            self.model_combo.setCurrentIndex(found_index)
+            if self.logger:
+                self.logger.debug(f"Set dropdown to model at index {found_index}: {current_model_name}")
+        else:
+            if self.logger:
+                self.logger.warning(f"Could not find model '{current_model_name}' in dropdown, will use first available model and update config")
+            # If the configured model is not available, use the first available one
+            if self.model_combo.count() > 0:
+                self.model_combo.setCurrentIndex(0)
+                first_model = self.model_combo.itemData(0)
+                if first_model:
+                    # Update config to match fallback
+                    self.config_manager.set_config_value('transcription', 'model', first_model['name'])
+                    if self.logger:
+                        self.logger.info(f"Config updated to fallback model: {first_model['name']}")
 
     def _on_model_selected(self, index):
         if index == -1:
@@ -298,6 +344,8 @@ class W4LMainWindow(QMainWindow):
 
         selected_model_data = self.model_combo.itemData(index)
         if not selected_model_data:
+            if self.logger:
+                self.logger.warning(f"No model data found for dropdown index {index}")
             return
 
         model_name = selected_model_data['name']
@@ -321,18 +369,26 @@ class W4LMainWindow(QMainWindow):
         
         available_memory = psutil.virtual_memory().available
 
+        if self.logger:
+            self.logger.debug(f"Memory check for model '{model_name}': required={required_memory / 1024**3:.1f}GB, available={available_memory / 1024**3:.1f}GB")
+
         if available_memory < required_memory:
             msg = f"Not enough memory to load model '{model_name}'.\n" \
                   f"Required: {required_memory / 1024**3:.1f} GB\n" \
                   f"Available: {available_memory / 1024**3:.1f} GB"
             QMessageBox.warning(self, "Memory Error", msg)
             
+            if self.logger:
+                self.logger.warning(f"Insufficient memory to load model '{model_name}'")
             # TODO: Revert dropdown selection to the previously loaded model
             return
 
         self.is_model_loading = True
         self.model_combo.setEnabled(False)
         self.status_label.setText(f"Loading model: {model_name}...")
+        
+        if self.logger:
+            self.logger.info(f"Starting model load for: {model_name}")
         
         thread = QThread()
         # Keep a reference to the thread to prevent it from being garbage collected
@@ -374,9 +430,9 @@ class W4LMainWindow(QMainWindow):
         try:
             # Get device configuration
             device_id = self.config_manager.get_config_value('audio', 'device_id')
-            sample_rate = self.config_manager.get_config_value('audio', 'sample_rate')
-            channels = self.config_manager.get_config_value('audio', 'channels')
-            buffer_size = self.config_manager.get_config_value('audio', 'buffer_size')
+            sample_rate = self.config_manager.get_config_value('audio', 'sample_rate', 16000)
+            channels = self.config_manager.get_config_value('audio', 'channels', 1)
+            buffer_size = self.config_manager.get_config_value('audio', 'buffer_size', 5)
             
             # Create recorder
             recorder = AudioRecorder(
