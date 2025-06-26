@@ -91,10 +91,10 @@ class ModelManager:
         try:
             with open(info['filepath'], "rb") as f:
                 file_hash = hashlib.sha256(f.read()).hexdigest()
-            
-            is_valid = file_hash == info['checksum']
-            self.logger.debug(f"Model '{name}' verification result: {is_valid} (file_hash: {file_hash[:8]}..., expected: {info['checksum'][:8]}...)")
-            return is_valid
+
+                is_valid = file_hash == info['checksum']
+                self.logger.debug(f"Model '{name}' verification result: {is_valid} (file_hash: {file_hash[:8]}..., expected: {info['checksum'][:8]}...)")
+                return is_valid
         except Exception as e:
             self.logger.error(f"Error verifying model '{name}': {e}")
             return False
@@ -111,7 +111,7 @@ class ModelManager:
         checksum = info['checksum']
 
         self.logger.info(f"Starting download of model '{name}' from {url}")
-
+        
         # In case of partial download, remove it.
         if filepath.exists() and not self.verify_model(name):
             self.logger.warning(f"Removing corrupted model file: {filepath}")
@@ -127,13 +127,13 @@ class ModelManager:
         try:
             response = requests.get(url, stream=True, timeout=10)
             response.raise_for_status()
-
+            
             total_size = int(response.headers.get('content-length', 0))
             self.logger.debug(f"Downloading {total_size} bytes for model '{name}'")
 
             if progress_callback:
                 progress_callback(0, total_size)
-
+            
             with open(filepath, 'wb') as f:
                 bytes_downloaded = 0
                 for chunk in response.iter_content(chunk_size=8192):
@@ -142,7 +142,7 @@ class ModelManager:
                         bytes_downloaded += len(chunk)
                         if progress_callback:
                             progress_callback(bytes_downloaded, total_size)
-
+            
             self.logger.debug(f"Download completed for model '{name}', verifying checksum...")
 
             if not self.verify_model(name):

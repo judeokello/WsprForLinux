@@ -16,6 +16,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 class RecordingState(Enum):
     """Recording session states."""
     IDLE = auto()           # Ready to start recording
+    MODEL_LOADING = auto()  # Loading a transcription model
     RECORDING = auto()      # Actively recording
     STOPPING = auto()       # Transitional state during cleanup
     FINISHED = auto()       # Recording completed successfully
@@ -26,6 +27,9 @@ class RecordingState(Enum):
 class RecordingEvent(Enum):
     """Events that can trigger state transitions."""
     START_REQUESTED = auto()
+    MODEL_LOAD_REQUESTED = auto()
+    MODEL_LOAD_COMPLETED = auto()
+    MODEL_LOAD_FAILED = auto()
     STOP_REQUESTED = auto()
     ABORT_REQUESTED = auto()
     SILENCE_DETECTED = auto()
@@ -74,6 +78,7 @@ class RecordingStateMachine(QObject):
         # State handlers
         self._state_handlers = {
             RecordingState.IDLE: self._handle_idle,
+            RecordingState.MODEL_LOADING: self._handle_model_loading,
             RecordingState.RECORDING: self._handle_recording,
             RecordingState.STOPPING: self._handle_stopping,
             RecordingState.FINISHED: self._handle_finished,
@@ -100,6 +105,22 @@ class RecordingStateMachine(QObject):
             RecordingEvent.START_REQUESTED: StateTransition(
                 RecordingState.IDLE, RecordingState.RECORDING, 
                 RecordingEvent.START_REQUESTED, "Start recording"
+            ),
+            RecordingEvent.MODEL_LOAD_REQUESTED: StateTransition(
+                RecordingState.IDLE, RecordingState.MODEL_LOADING,
+                RecordingEvent.MODEL_LOAD_REQUESTED, "Start model loading"
+            ),
+        }
+        
+        # MODEL_LOADING state transitions
+        transitions[RecordingState.MODEL_LOADING] = {
+            RecordingEvent.MODEL_LOAD_COMPLETED: StateTransition(
+                RecordingState.MODEL_LOADING, RecordingState.IDLE,
+                RecordingEvent.MODEL_LOAD_COMPLETED, "Model loading completed"
+            ),
+            RecordingEvent.MODEL_LOAD_FAILED: StateTransition(
+                RecordingState.MODEL_LOADING, RecordingState.ERROR,
+                RecordingEvent.MODEL_LOAD_FAILED, "Model loading failed"
             ),
         }
         
@@ -141,6 +162,10 @@ class RecordingStateMachine(QObject):
                 RecordingState.FINISHED, RecordingState.RECORDING,
                 RecordingEvent.START_REQUESTED, "Start new recording"
             ),
+            RecordingEvent.MODEL_LOAD_REQUESTED: StateTransition(
+                RecordingState.FINISHED, RecordingState.MODEL_LOADING,
+                RecordingEvent.MODEL_LOAD_REQUESTED, "Start model loading"
+            ),
         }
         
         # ABORTED state transitions
@@ -148,6 +173,10 @@ class RecordingStateMachine(QObject):
             RecordingEvent.START_REQUESTED: StateTransition(
                 RecordingState.ABORTED, RecordingState.RECORDING,
                 RecordingEvent.START_REQUESTED, "Start new recording"
+            ),
+            RecordingEvent.MODEL_LOAD_REQUESTED: StateTransition(
+                RecordingState.ABORTED, RecordingState.MODEL_LOADING,
+                RecordingEvent.MODEL_LOAD_REQUESTED, "Start model loading"
             ),
         }
         
@@ -160,6 +189,10 @@ class RecordingStateMachine(QObject):
             RecordingEvent.START_REQUESTED: StateTransition(
                 RecordingState.ERROR, RecordingState.RECORDING,
                 RecordingEvent.START_REQUESTED, "Start new recording"
+            ),
+            RecordingEvent.MODEL_LOAD_REQUESTED: StateTransition(
+                RecordingState.ERROR, RecordingState.MODEL_LOADING,
+                RecordingEvent.MODEL_LOAD_REQUESTED, "Start model loading"
             ),
         }
         
@@ -237,6 +270,14 @@ class RecordingStateMachine(QObject):
             except Exception as e:
                 self.logger.error(f"Error starting recording: {e}")
                 self.handle_event(RecordingEvent.ERROR_OCCURRED, error=e)
+    
+    def _handle_model_loading(self, event: RecordingEvent, **kwargs):
+        """Handle MODEL_LOADING state."""
+        # This handler is called when entering MODEL_LOADING state
+        if event == RecordingEvent.MODEL_LOAD_REQUESTED:
+            self.logger.info("Model loading started")
+            # The actual model loading is handled by the main window
+            # This handler just logs the state change
     
     def _handle_recording(self, event: RecordingEvent, **kwargs):
         """Handle RECORDING state."""

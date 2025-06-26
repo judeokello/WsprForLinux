@@ -116,14 +116,9 @@ class W4LApplication(QObject):
     
     def _setup_logging(self):
         """Setup application logging."""
-        logging.basicConfig(
-            level=logging.DEBUG,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.StreamHandler(),
-                logging.FileHandler('w4l.log')
-            ]
-        )
+        from config.logging_config import setup_logging
+        # Always log to both console and file
+        setup_logging(log_level="DEBUG", log_file=None, console_output=True)
     
     def _setup_signal_handlers(self):
         """Setup signal handlers for proper application termination."""

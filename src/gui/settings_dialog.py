@@ -279,7 +279,7 @@ class SettingsDialog(QDialog):
         
         # Always refresh metadata from disk before showing the model list
         self.model_manager.metadata_manager.refresh_metadata(fetch_online=False)
-
+        
         # --- Downloaded Models Group ---
         models_group = QGroupBox("Downloaded Models")
         models_layout = QVBoxLayout(models_group)
@@ -292,7 +292,7 @@ class SettingsDialog(QDialog):
         refresh_layout.addWidget(self.last_refreshed_label)
         refresh_layout.addStretch(1)
         models_layout.addLayout(refresh_layout)
-
+        
         self.model_list_widget = QListWidget()
         models_layout.addWidget(self.model_list_widget)
         
@@ -610,7 +610,7 @@ class SettingsDialog(QDialog):
                 del self.download_threads[model_name]
             self.populate_model_list()
             self.update_last_refreshed_label()
-
+        
         def on_success(verified):
             self.logger.info(f"Download success for {model_name}, verified={verified}")
             on_finished(verified)
@@ -667,7 +667,7 @@ class SettingsDialog(QDialog):
         # Only refresh if dialog is visible
         if self.isVisible():
             self.logger.info("Model metadata updated, refreshing model list.")
-            self.populate_model_list()
+            self.populate_model_list() 
 
     def handle_refresh_models(self):
         self.logger.info("Manual model metadata refresh triggered by user.")

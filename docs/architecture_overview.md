@@ -68,7 +68,7 @@ stateDiagram-v2
 
 1.  **Memory Efficiency**: W4L can be an autostart application without bogging down the user's system with a constant high memory load.
 2.  **Responsiveness**: For frequent use, the model remains loaded ("warm"), providing near-instant access. The only delay is on the first use after a long break.
-3.  **Robustness**: This model requires a single, persistent process, which simplifies state and instance management.
+3.  **Robustness**: This model requires a single, persistent process, which simplifies state and instance management. 
 
 ## Model Metadata Refresh Logic and UI Interaction
 
@@ -119,4 +119,6 @@ stateDiagram-v2
 | User clicks Refresh          |      Yes      |       Yes        |      Yes       |         Yes          |
 | Scheduled background refresh |      Yes      |       Yes        |      Yes       |         Yes          |
 
-</rewritten_file> 
+## Main Window State Machine
+
+For a detailed description of the main window state machine, including all states, UI actions, and logging, see [Main Window State Machine: States & UI/Logging Actions](main_window_state_machine.md). 

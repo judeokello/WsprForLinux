@@ -157,7 +157,7 @@ class ModelMetadataManager:
                 self._on_update_callback()
             self.logger.debug("Background check for model updates completed")
         t = threading.Thread(target=check, daemon=True)
-        t.start()
+        t.start() 
 
     def ensure_metadata_file(self):
         if not self.metadata_path.exists():
