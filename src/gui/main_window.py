@@ -35,10 +35,11 @@ class ModelLoadWorker(QObject):
     finished = pyqtSignal(object)
     error = pyqtSignal(str)
 
-    def __init__(self, model_name, old_model, config_manager, parent=None):
+    def __init__(self, model_name, old_model_tuple, config_manager, parent=None):
         super().__init__(parent)
         self.model_name = model_name
-        self.old_model = old_model
+        self.old_model = old_model_tuple[0] if old_model_tuple else None
+        self.old_model_name = old_model_tuple[1] if old_model_tuple else None
         self.config_manager = config_manager
         self.logger = logging.getLogger(__name__)
         self.logger.info(f"ModelLoadWorker: Constructed for model '{self.model_name}' (thread: {QThread.currentThread()})")
@@ -54,8 +55,8 @@ class ModelLoadWorker(QObject):
             
             # Unload old model
             if self.old_model:
-                print(f"DEBUG: Unloading old model '{self.old_model.name if hasattr(self.old_model, 'name') else 'unknown'}'")
-                self.logger.info(f"ModelLoadWorker: Unloading old model '{self.old_model.name if hasattr(self.old_model, 'name') else 'unknown'}'")
+                print(f"DEBUG: Unloading old model '{self.old_model_name}'")
+                self.logger.info(f"ModelLoadWorker: Unloading old model '{self.old_model_name}'")
                 del self.old_model
                 gc.collect()
                 self.logger.info(f"ModelLoadWorker: Old model unloaded and garbage collected")
@@ -73,7 +74,7 @@ class ModelLoadWorker(QObject):
             self.logger.debug(f"ModelLoadWorker: Config updated for model '{self.model_name}'")
             
             self.logger.info(f"ModelLoadWorker: Emitting finished signal with model")
-            self.finished.emit(model)
+            self.finished.emit((model, self.model_name))
             self.logger.info(f"ModelLoadWorker: Finished signal emitted")
             self.logger.info(f"ModelLoadWorker: run() method completed successfully")
         except Exception as e:
@@ -452,7 +453,8 @@ class W4LMainWindow(QMainWindow):
             self.logger.info(f"Starting model load for: {model_name}")
         
         thread = QThread()
-        worker = ModelLoadWorker(model_name, self.whisper_model, self.config_manager)
+        old_model_tuple = self.whisper_model if self.whisper_model else None
+        worker = ModelLoadWorker(model_name, old_model_tuple, self.config_manager)
         worker.moveToThread(thread)
         
         if self.logger:
@@ -482,14 +484,14 @@ class W4LMainWindow(QMainWindow):
             self.logger.info(f"Thread isRunning: {thread.isRunning()}")
             self.logger.info(f"Thread isFinished: {thread.isFinished()}")
 
-    def _on_model_load_finished(self, model):
+    def _on_model_load_finished(self, model_tuple):
         if self.logger:
             self.logger.info("_on_model_load_finished: Received finished signal from worker")
-        self.whisper_model = model
+        self.whisper_model = model_tuple  # model_tuple is (model, model_name)
         # Transition to IDLE state (UI will be updated by state machine)
         self.state_machine.handle_event(RecordingEvent.MODEL_LOAD_COMPLETED)
         if self.logger:
-            model_name = self.config_manager.get_config_value('transcription', 'model')
+            model_name = model_tuple[1]
             self.logger.info(f"Successfully loaded model: {model_name}")
         
         # Manual cleanup of threads as backup to thread.finished signal
