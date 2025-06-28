@@ -13,82 +13,14 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QEvent, pyqtSignal, QThread, QObject, QTimer, pyqtSlot
 from PyQt6.QtGui import QFont, QCloseEvent, QKeyEvent
 from .waveform_widget import WaveformWidget
+from .model_manager_ui import ModelManagerUI
+from .styles import *
 from config import ConfigManager
 from transcription.model_manager import ModelManager
 from audio.recorder import AudioRecorder
 from audio.recording_state_machine import RecordingStateMachine, RecordingState, RecordingEvent
 import os
 import traceback
-
-MODEL_MEMORY_REQ = {
-    'tiny': 1 * 1024**3,
-    'base': 1 * 1024**3,
-    'small': 2 * 1024**3,
-    'medium': 5 * 1024**3,
-    'large': 10 * 1024**3,
-    'large-v1': 10 * 1024**3,
-    'large-v2': 10 * 1024**3,
-    'large-v3': 10 * 1024**3,
-}
-
-class ModelLoadWorker(QObject):
-    finished = pyqtSignal(object)
-    error = pyqtSignal(str)
-
-    def __init__(self, model_name, old_model_tuple, config_manager, parent=None):
-        super().__init__(parent)
-        self.model_name = model_name
-        self.old_model = old_model_tuple[0] if old_model_tuple else None
-        self.old_model_name = old_model_tuple[1] if old_model_tuple else None
-        self.config_manager = config_manager
-        self.logger = logging.getLogger(__name__)
-        self.logger.info(f"ModelLoadWorker: Constructed for model '{self.model_name}' (thread: {QThread.currentThread()})")
-
-    @pyqtSlot()
-    def run(self):
-        import traceback
-        from PyQt6.QtCore import QThread
-        print(f"DEBUG: ModelLoadWorker.run() called for model '{self.model_name}'")
-        self.logger.info(f"ModelLoadWorker: ENTERED run() for model '{self.model_name}' (thread: {QThread.currentThread()})")
-        try:
-            self.logger.info(f"ModelLoadWorker: Starting to load model '{self.model_name}'")
-            
-            # Unload old model
-            if self.old_model:
-                print(f"DEBUG: Unloading old model '{self.old_model_name}'")
-                self.logger.info(f"ModelLoadWorker: Unloading old model '{self.old_model_name}'")
-                del self.old_model
-                gc.collect()
-                self.logger.info(f"ModelLoadWorker: Old model unloaded and garbage collected")
-            else:
-                print(f"DEBUG: No old model to unload")
-                self.logger.info(f"ModelLoadWorker: No old model to unload")
-
-            self.logger.info(f"ModelLoadWorker: About to call whisper.load_model('{self.model_name}')")
-            model = whisper.load_model(self.model_name)
-            self.logger.info(f"ModelLoadWorker: Successfully loaded model '{self.model_name}'")
-            
-            # Update config
-            self.logger.debug(f"ModelLoadWorker: Updating config to use model '{self.model_name}'")
-            self.config_manager.set_config_value('transcription', 'model', self.model_name)
-            self.logger.debug(f"ModelLoadWorker: Config updated for model '{self.model_name}'")
-            
-            self.logger.info(f"ModelLoadWorker: Emitting finished signal with model")
-            self.finished.emit((model, self.model_name))
-            self.logger.info(f"ModelLoadWorker: Finished signal emitted")
-            self.logger.info(f"ModelLoadWorker: run() method completed successfully")
-        except Exception as e:
-            tb = traceback.format_exc()
-            self.logger.error(f"ModelLoadWorker: Failed to load model '{self.model_name}': {e}\nTraceback:\n{tb}")
-            self.error.emit(str(e))
-            self.logger.info(f"ModelLoadWorker: run() method completed with error")
-        finally:
-            thread = QThread.currentThread()
-            self.logger.info(f"ModelLoadWorker: Quitting thread {thread}")
-            if isinstance(thread, QThread):
-                thread.quit()
-            else:
-                self.logger.warning("ModelLoadWorker: currentThread is not a QThread instance, cannot call quit()")
 
 class W4LMainWindow(QMainWindow):
     # Signal emitted when window is closed (but app continues running)
@@ -101,8 +33,6 @@ class W4LMainWindow(QMainWindow):
         self.logger: Optional[logging.Logger] = None  # Will be set up by main application
         self.config_manager = config_manager
         self.model_manager = model_manager
-        self.whisper_model = None
-        self.load_threads = []  # Keep references to all running model load threads
         
         # Audio Recorder setup
         self.recorder = self._setup_recorder()
@@ -110,15 +40,26 @@ class W4LMainWindow(QMainWindow):
         # Recording State Machine setup
         self.state_machine = self._setup_state_machine()
 
-        # Window state (deprecated - now managed by state machine)
-        # self.is_recording = False
-        
         # Initialize UI
         self._setup_window_properties()
         self._create_ui()
-        self._populate_model_dropdown()
-        # Connect the signal AFTER populating the dropdown to prevent initialization triggers
-        self.model_combo.currentIndexChanged.connect(self._on_model_selected)
+        
+        # Initialize ModelManagerUI after creating the model_combo
+        self.model_manager_ui = ModelManagerUI(
+            self.model_manager, 
+            self.config_manager, 
+            self.model_combo, 
+            self
+        )
+        
+        # Connect ModelManagerUI signals
+        self.model_manager_ui.model_loaded.connect(self._on_model_loaded)
+        self.model_manager_ui.model_load_error.connect(self._on_model_load_error)
+        self.model_manager_ui.model_selection_changed.connect(self._on_model_selection_changed)
+        
+        # Populate model dropdown
+        self.model_manager_ui.populate_model_dropdown()
+        
         self._center_window()
         
         # Do NOT load the model here; will be done in showEvent
@@ -137,7 +78,12 @@ class W4LMainWindow(QMainWindow):
             from PyQt6.QtCore import QTimer
             if self.logger:
                 self.logger.info("Scheduling QTimer.singleShot for deferred model load")
-            QTimer.singleShot(0, self._deferred_model_load)
+            # Only schedule if not already loading
+            if self.state_machine.get_state() == RecordingState.IDLE:
+                QTimer.singleShot(0, self._deferred_model_load)
+            else:
+                if self.logger:
+                    self.logger.info("Model load already in progress, skipping deferred load")
         else:
             if self.logger:
                 self.logger.info("Model already loaded on show, skipping deferred load")
@@ -148,7 +94,7 @@ class W4LMainWindow(QMainWindow):
             self.logger.info("Deferred model load triggered - event loop should be fully running")
         # Get the current model name from config
         current_model_name = self.config_manager.get_config_value('transcription', 'model', 'tiny')
-        self._load_whisper_model(current_model_name)
+        self.model_manager_ui.load_model(current_model_name)
 
     def _setup_window_properties(self):
         """Set up window properties (always on top, standard frame)."""
@@ -178,14 +124,14 @@ class W4LMainWindow(QMainWindow):
         # Title bar
         title_bar = QFrame()
         title_bar.setFixedHeight(40)
-        title_bar.setStyleSheet("background-color: #3498db; border-top-left-radius: 10px; border-top-right-radius: 10px;")
+        title_bar.setStyleSheet(TITLE_BAR_STYLE)
         
         title_layout = QHBoxLayout(title_bar)
         title_layout.setContentsMargins(10, 5, 10, 5)
         
         title_label = QLabel("W4L")
         title_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
-        title_label.setStyleSheet("color: #2c3e50;")
+        title_label.setStyleSheet(TITLE_LABEL_STYLE)
         
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -194,17 +140,7 @@ class W4LMainWindow(QMainWindow):
         self.settings_button.setFixedSize(30, 30)
         self.settings_button.setToolTip("Settings")
         self.settings_button.setFont(QFont("Arial", 12))
-        self.settings_button.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                border: none;
-                color: #2c3e50;
-                border-radius: 15px;
-            }
-            QPushButton:hover {
-                background-color: rgba(255, 255, 255, 0.3);
-            }
-        """)
+        self.settings_button.setStyleSheet(SETTINGS_BUTTON_STYLE)
         self.settings_button.clicked.connect(self._open_settings)
         
         title_layout.addWidget(title_label)
@@ -213,13 +149,7 @@ class W4LMainWindow(QMainWindow):
         
         # Content area
         content_frame = QFrame()
-        content_frame.setStyleSheet("""
-            QFrame {
-                background-color: white;
-                border: 1px solid #bdc3c7;
-                border-radius: 8px;
-            }
-        """)
+        content_frame.setStyleSheet(CONTENT_FRAME_STYLE)
         content_frame.setMinimumHeight(200)
         
         content_layout = QVBoxLayout(content_frame)
@@ -234,13 +164,13 @@ class W4LMainWindow(QMainWindow):
         self.instruction_label = QLabel("Speak now... Press ESC to cancel or Enter to finish early")
         self.instruction_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.instruction_label.setFont(QFont("Arial", 11))
-        self.instruction_label.setStyleSheet("color: #2c3e50;")
+        self.instruction_label.setStyleSheet(INSTRUCTION_LABEL_STYLE)
         
         # Status indicator
         self.status_label = QLabel("Ready")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setFont(QFont("Arial", 10))
-        self.status_label.setStyleSheet("color: #27ae60; font-weight: bold;")
+        self.status_label.setStyleSheet(STATUS_READY_STYLE)
         
         content_layout.addWidget(self.waveform_widget)
         content_layout.addWidget(self.instruction_label)
@@ -248,13 +178,7 @@ class W4LMainWindow(QMainWindow):
         
         # Status bar
         status_frame = QFrame()
-        status_frame.setStyleSheet("""
-            QFrame {
-                background-color: #f8f9fa;
-                border-bottom-left-radius: 10px;
-                border-bottom-right-radius: 10px;
-            }
-        """)
+        status_frame.setStyleSheet(STATUS_FRAME_STYLE)
         status_frame.setFixedHeight(50)
         
         status_layout = QHBoxLayout(status_frame)
@@ -264,42 +188,20 @@ class W4LMainWindow(QMainWindow):
         self.record_button = QPushButton("Start Recording")
         self.record_button.setFixedHeight(35)
         self.record_button.setFont(QFont("Arial", 10, QFont.Weight.Bold))
-        self.record_button.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                border: none;
-                border-radius: 17px;
-                padding: 8px 16px;
-            }
-            QPushButton:hover {
-                background-color: #229954;
-            }
-        """)
+        self.record_button.setStyleSheet(RECORD_BUTTON_READY_STYLE)
         self.record_button.clicked.connect(self._toggle_recording)
         
         # Add model selection dropdown
         self.model_combo = QComboBox()
         self.model_combo.setToolTip("Select transcription model")
-        # Signal connection moved to after _populate_model_dropdown to prevent initialization triggers
-        status_layout.addWidget(self.model_combo)
+        self.model_combo.setStyleSheet(MODEL_COMBO_STYLE)
         
         # Close button
         self.close_button = QPushButton("×")
         self.close_button.setFixedSize(35, 35)
         self.close_button.setFont(QFont("Arial", 16, QFont.Weight.Bold))
         self.close_button.setToolTip("Close")
-        self.close_button.setStyleSheet("""
-            QPushButton {
-                background-color: #e74c3c;
-                color: white;
-                border: none;
-                border-radius: 17px;
-            }
-            QPushButton:hover {
-                background-color: #c0392b;
-            }
-        """)
+        self.close_button.setStyleSheet(CLOSE_BUTTON_STYLE)
         self.close_button.clicked.connect(self._close_application)
         
         status_layout.addWidget(self.record_button)
@@ -328,194 +230,6 @@ class W4LMainWindow(QMainWindow):
         
         self.move(x, y)
     
-    def _populate_model_dropdown(self):
-        self.model_combo.clear()
-        all_models = self.model_manager.list_models()
-        available_models = [m for m in all_models if m.get('is_verified')]
-        
-        if self.logger:
-            self.logger.debug(f"Found {len(all_models)} total models, {len(available_models)} verified models")
-            for model in all_models:
-                self.logger.debug(f"Model '{model['name']}': downloaded={model.get('is_downloaded')}, verified={model.get('is_verified')}")
-
-        if not available_models:
-            self.model_combo.addItem("No models found")
-            self.model_combo.setEnabled(False)
-            self.record_button.setEnabled(False)
-            self.status_label.setText("No models available. Please go to Settings and download a model.")
-            if self.logger:
-                self.logger.warning("No verified models found - dropdown and recording disabled")
-            return
-            
-        self.model_combo.setEnabled(True)
-        self.record_button.setEnabled(True)
-        for model in available_models:
-            size_bytes = model.get('size_bytes', 0)
-            if not size_bytes:
-                size_str = 'Unknown size'
-            else:
-                size_mb = size_bytes / (1024 * 1024)
-                size_str = f'{size_mb:.1f} MB'
-            display_text = f"{model['name']} ({size_str})"
-            self.model_combo.addItem(display_text, userData=model)
-            if self.logger:
-                self.logger.debug(f"Added model to dropdown: {display_text}")
-            
-        # Set current model from config
-        current_model_name = self.config_manager.get_config_value('transcription', 'model', 'tiny')
-        if self.logger:
-            self.logger.debug(f"Current model from config: {current_model_name}")
-
-        found_index = -1
-        for i in range(self.model_combo.count()):
-            model_data = self.model_combo.itemData(i)
-            if model_data and model_data['name'] == current_model_name:
-                found_index = i
-                break
-
-        if found_index != -1:
-            print(f"DEBUG: About to block signals and set index {found_index}")
-            self.model_combo.blockSignals(True)
-            self.model_combo.setCurrentIndex(found_index)
-            self.model_combo.blockSignals(False)
-            print(f"DEBUG: Signals unblocked after setting index {found_index}")
-            if self.logger:
-                self.logger.debug(f"Set dropdown to model at index {found_index}: {current_model_name}")
-        else:
-            if self.logger:
-                self.logger.warning(f"Could not find model '{current_model_name}' in dropdown, will use first available model and update config")
-            # If the configured model is not available, use the first available one
-            if self.model_combo.count() > 0:
-                print(f"DEBUG: About to block signals and set index 0 (fallback)")
-                self.model_combo.blockSignals(True)
-                self.model_combo.setCurrentIndex(0)
-                self.model_combo.blockSignals(False)
-                print(f"DEBUG: Signals unblocked after setting index 0")
-                first_model = self.model_combo.itemData(0)
-                if first_model:
-                    # Update config to match fallback
-                    self.config_manager.set_config_value('transcription', 'model', first_model['name'])
-                    if self.logger:
-                        self.logger.info(f"Config updated to fallback model: {first_model['name']}")
-
-    def _on_model_selected(self, index):
-        if index == -1:
-            return
-        selected_model_data = self.model_combo.itemData(index)
-        if not selected_model_data:
-            if self.logger:
-                self.logger.warning(f"No model data found for dropdown index {index}")
-            return
-        model_name = selected_model_data['name']
-        if self.logger:
-            self.logger.info(f"User selected model: {model_name}")
-        self._load_whisper_model(model_name)
-
-    def _load_whisper_model(self, model_name: str):
-        if self.logger:
-            self.logger.info(f"Request to load model: {model_name}")
-        print("DEBUG: About to call state_machine.get_state()")
-        # Check if we can start model loading (only from certain states)
-        current_state = self.state_machine.get_state()
-        print(f"DEBUG: state_machine.get_state() returned {current_state}")
-        if self.logger:
-            self.logger.info(f"Current state: {current_state.name}")
-        if current_state != RecordingState.IDLE:
-            if self.logger:
-                self.logger.warning(f"Cannot load model in state: {current_state.name}")
-            return
-        # Transition to MODEL_LOADING state here
-        self.state_machine.handle_event(RecordingEvent.MODEL_LOAD_REQUESTED)
-        if self.logger:
-            self.logger.info(f"Passed state and thread checks, proceeding with model load")
-
-        # Find the base model name (e.g., 'tiny.en' -> 'tiny')
-        base_model_name = model_name.split('.')[0]
-        required_memory = MODEL_MEMORY_REQ.get(base_model_name, 1 * 1024**3) # Default to 1GB
-        
-        available_memory = psutil.virtual_memory().available
-
-        if self.logger:
-            self.logger.debug(f"Memory check for model '{model_name}': required={required_memory / 1024**3:.1f}GB, available={available_memory / 1024**3:.1f}GB")
-
-        if available_memory < required_memory:
-            msg = f"Not enough memory to load model '{model_name}'.\n" \
-                  f"Required: {required_memory / 1024**3:.1f} GB\n" \
-                  f"Available: {available_memory / 1024**3:.1f} GB"
-            QMessageBox.warning(self, "Memory Error", msg)
-            
-            if self.logger:
-                self.logger.warning(f"Insufficient memory to load model '{model_name}'")
-            # TODO: Revert dropdown selection to the previously loaded model
-            return
-
-        if self.logger:
-            self.logger.info(f"Starting model load for: {model_name}")
-        
-        thread = QThread()
-        old_model_tuple = self.whisper_model if self.whisper_model else None
-        worker = ModelLoadWorker(model_name, old_model_tuple, self.config_manager)
-        worker.moveToThread(thread)
-        
-        if self.logger:
-            self.logger.info(f"Thread and worker created, setting up connections")
-        
-        # Remove direct connection from thread.started to worker.run
-        thread.started.connect(worker.run)
-        worker.finished.connect(self._on_model_load_finished)
-        worker.error.connect(self._on_model_load_error)
-        
-        # Store thread reference in the list
-        self.load_threads.append(thread)
-        
-        # Clean up the worker and thread when finished
-        worker.finished.connect(thread.quit)
-        worker.finished.connect(worker.deleteLater)
-        thread.finished.connect(thread.deleteLater)
-        thread.finished.connect(lambda: self._remove_load_thread(thread))
-        
-        if self.logger:
-            self.logger.info(f"Starting thread")
-        
-        thread.start()
-        
-        if self.logger:
-            self.logger.info(f"Thread started successfully")
-            self.logger.info(f"Thread isRunning: {thread.isRunning()}")
-            self.logger.info(f"Thread isFinished: {thread.isFinished()}")
-
-    def _on_model_load_finished(self, model_tuple):
-        if self.logger:
-            self.logger.info("_on_model_load_finished: Received finished signal from worker")
-        self.whisper_model = model_tuple  # model_tuple is (model, model_name)
-        # Transition to IDLE state (UI will be updated by state machine)
-        self.state_machine.handle_event(RecordingEvent.MODEL_LOAD_COMPLETED)
-        if self.logger:
-            model_name = model_tuple[1]
-            self.logger.info(f"Successfully loaded model: {model_name}")
-        
-        # Manual cleanup of threads as backup to thread.finished signal
-        if self.logger:
-            self.logger.info(f"_on_model_load_finished: Manual cleanup - threads before: {len(self.load_threads)}")
-        
-        # Remove any finished threads from the list
-        finished_threads = [thread for thread in self.load_threads if thread.isFinished()]
-        for thread in finished_threads:
-            if self.logger:
-                self.logger.info(f"_on_model_load_finished: Removing finished thread manually")
-            self._remove_load_thread(thread)
-        
-        if self.logger:
-            self.logger.info(f"_on_model_load_finished: Manual cleanup - threads after: {len(self.load_threads)}")
-
-    def _on_model_load_error(self, error_message):
-        # Transition to ERROR state (UI will be updated by state machine)
-        self.state_machine.handle_event(RecordingEvent.MODEL_LOAD_FAILED)
-        QMessageBox.critical(self, "Model Load Error", error_message)
-        if self.logger:
-            self.logger.error(f"Failed to load model: {error_message}")
-        # TODO: Revert dropdown to previous model
-
     def _setup_recorder(self) -> Optional[AudioRecorder]:
         """Set up the audio recorder with configuration."""
         try:
@@ -831,20 +545,9 @@ class W4LMainWindow(QMainWindow):
         """Reset UI to initial state."""
         self.state_machine.reset_to_idle()
         self.record_button.setText("Start Recording")
-        self.record_button.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                border: none;
-                border-radius: 17px;
-                padding: 8px 16px;
-            }
-            QPushButton:hover {
-                background-color: #229954;
-            }
-        """)
+        self.record_button.setStyleSheet(RECORD_BUTTON_READY_STYLE)
         self.status_label.setText("Ready")
-        self.status_label.setStyleSheet("color: #27ae60; font-weight: bold;")
+        self.status_label.setStyleSheet(STATUS_READY_STYLE)
         self.instruction_label.setText("Press hotkey to start recording...")
         self.waveform_widget.stop_recording()
     
@@ -1049,50 +752,28 @@ class W4LMainWindow(QMainWindow):
         """Update UI for IDLE state."""
         self.record_button.setText("Start Recording")
         self.record_button.setEnabled(True)
-        self.record_button.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                border: none;
-                border-radius: 17px;
-                padding: 8px 16px;
-            }
-            QPushButton:hover {
-                background-color: #229954;
-            }
-        """)
-        self.model_combo.setEnabled(True)
+        self.record_button.setStyleSheet(RECORD_BUTTON_READY_STYLE)
+        self.model_manager_ui.set_model_loading_state(False)
         self.status_label.setText("Ready")
-        self.status_label.setStyleSheet("color: #27ae60; font-weight: bold;")
+        self.status_label.setStyleSheet(STATUS_READY_STYLE)
         self.instruction_label.setText("Click Start Recording to begin")
     
     def _update_ui_for_model_loading(self):
         """Update UI for MODEL_LOADING state."""
         self.record_button.setEnabled(False)
-        self.model_combo.setEnabled(False)
+        self.model_manager_ui.set_model_loading_state(True)
         self.status_label.setText("Loading model...")
-        self.status_label.setStyleSheet("color: #f39c12; font-weight: bold;")
+        self.status_label.setStyleSheet(STATUS_LOADING_STYLE)
         self.instruction_label.setText("Loading model...")
     
     def _update_ui_for_recording(self):
         """Update UI for RECORDING state."""
         self.record_button.setText("Stop Recording")
         self.record_button.setEnabled(True)
-        self.record_button.setStyleSheet("""
-            QPushButton {
-                background-color: #e74c3c;
-                color: white;
-                border: none;
-                border-radius: 17px;
-                padding: 8px 16px;
-            }
-            QPushButton:hover {
-                background-color: #c0392b;
-            }
-        """)
-        self.model_combo.setEnabled(False)
+        self.record_button.setStyleSheet(RECORD_BUTTON_RECORDING_STYLE)
+        self.model_manager_ui.set_model_loading_state(False)
         self.status_label.setText("Recording...")
-        self.status_label.setStyleSheet("color: #e74c3c; font-weight: bold;")
+        self.status_label.setStyleSheet(STATUS_RECORDING_STYLE)
         self.instruction_label.setText("Speak now... Press ESC to cancel or Enter to finish early")
         # Start waveform recording
         self.waveform_widget.start_recording()
@@ -1100,17 +781,17 @@ class W4LMainWindow(QMainWindow):
     def _update_ui_for_stopping(self):
         """Update UI for STOPPING state."""
         self.record_button.setEnabled(False)
-        self.model_combo.setEnabled(False)
+        self.model_manager_ui.set_model_loading_state(False)
         self.status_label.setText("Stopping...")
-        self.status_label.setStyleSheet("color: #f39c12; font-weight: bold;")
+        self.status_label.setStyleSheet(STATUS_STOPPING_STYLE)
         self.instruction_label.setText("Processing recording...")
     
     def _update_ui_for_finished(self):
         """Update UI for FINISHED state."""
         self.record_button.setEnabled(True)
-        self.model_combo.setEnabled(True)
+        self.model_manager_ui.set_model_loading_state(False)
         self.status_label.setText("Recording completed")
-        self.status_label.setStyleSheet("color: #27ae60; font-weight: bold;")
+        self.status_label.setStyleSheet(STATUS_FINISHED_STYLE)
         self.instruction_label.setText("Recording saved successfully")
         # Reset to idle after a short delay
         QApplication.processEvents()
@@ -1119,9 +800,9 @@ class W4LMainWindow(QMainWindow):
     def _update_ui_for_aborted(self):
         """Update UI for ABORTED state."""
         self.record_button.setEnabled(True)
-        self.model_combo.setEnabled(True)
+        self.model_manager_ui.set_model_loading_state(False)
         self.status_label.setText("Recording cancelled")
-        self.status_label.setStyleSheet("color: #95a5a6; font-weight: bold;")
+        self.status_label.setStyleSheet(STATUS_ABORTED_STYLE)
         self.instruction_label.setText("Recording was cancelled")
         # Reset to idle after a short delay
         QApplication.processEvents()
@@ -1130,30 +811,58 @@ class W4LMainWindow(QMainWindow):
     def _update_ui_for_error(self):
         """Update UI for ERROR state."""
         self.record_button.setEnabled(True)
-        self.model_combo.setEnabled(True)
+        self.model_manager_ui.set_model_loading_state(False)
         self.status_label.setText("Error occurred")
-        self.status_label.setStyleSheet("color: #e74c3c; font-weight: bold;")
+        self.status_label.setStyleSheet(STATUS_ERROR_STYLE)
         self.instruction_label.setText("An error occurred during recording")
     
     def _update_ui_for_recovering(self):
         """Update UI for RECOVERING state."""
         self.record_button.setEnabled(False)
-        self.model_combo.setEnabled(False)
+        self.model_manager_ui.set_model_loading_state(False)
         self.status_label.setText("Recovering...")
-        self.status_label.setStyleSheet("color: #f39c12; font-weight: bold;")
+        self.status_label.setStyleSheet(STATUS_RECOVERING_STYLE)
         self.instruction_label.setText("Attempting to recover from error...")
 
-    def _remove_load_thread(self, thread):
+    def _on_model_loaded(self, model_tuple):
         if self.logger:
-            self.logger.info(f"_remove_load_thread: Attempting to remove thread from list (list size: {len(self.load_threads)})")
-        
-        if thread in self.load_threads:
-            self.load_threads.remove(thread)
-            if self.logger:
-                self.logger.info(f"_remove_load_thread: Successfully removed thread from list (new size: {len(self.load_threads)})")
+            model_name = model_tuple[1]
+            self.logger.info(f"_on_model_loaded called for model: {model_name}")
+            self.logger.info(f"Current state before handling MODEL_LOAD_COMPLETED: {self.state_machine.get_state()}")
+        # Only handle event if in MODEL_LOADING state
+        if self.state_machine.get_state() == RecordingState.MODEL_LOADING:
+            self.state_machine.handle_event(RecordingEvent.MODEL_LOAD_COMPLETED)
         else:
             if self.logger:
-                self.logger.warning(f"_remove_load_thread: Thread not found in list")
+                self.logger.warning(f"MODEL_LOAD_COMPLETED ignored because state is {self.state_machine.get_state()}")
+
+    def _on_model_load_error(self, error_message: str):
+        """Handle model load error signal from ModelManagerUI."""
+        if self.logger:
+            self.logger.error(f"Model load error: {error_message}")
+        # Transition to ERROR state (UI will be updated by state machine)
+        self.state_machine.handle_event(RecordingEvent.MODEL_LOAD_FAILED)
+        QMessageBox.critical(self, "Model Load Error", error_message)
+
+    def _on_model_selection_changed(self, model_name: str):
+        """Handle model selection changed signal from ModelManagerUI."""
+        if self.logger:
+            self.logger.info(f"Model selection changed to: {model_name}")
+        # Check if we can start model loading (only from certain states)
+        current_state = self.state_machine.get_state()
+        if self.logger:
+            self.logger.info(f"Current state: {current_state.name}")
+        if current_state != RecordingState.IDLE:
+            if self.logger:
+                self.logger.warning(f"Cannot load model in state: {current_state.name}")
+            return
+        # Transition to MODEL_LOADING state here
+        self.state_machine.handle_event(RecordingEvent.MODEL_LOAD_REQUESTED)
+        if self.logger:
+            self.logger.info(f"Passed state checks, proceeding with model load")
+        
+        # Load the model using ModelManagerUI
+        self.model_manager_ui.load_model(model_name)
 
 if __name__ == '__main__':
     # This block is for direct testing of the main window
