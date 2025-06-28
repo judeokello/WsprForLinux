@@ -69,7 +69,7 @@ class RecordingStateMachine(QObject):
         self.logger = logging.getLogger("w4l.audio.state_machine")
         
         # State management
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._state = RecordingState.IDLE
         
         # State transition table

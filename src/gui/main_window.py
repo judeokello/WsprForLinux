@@ -46,16 +46,22 @@ class ModelLoadWorker(QObject):
     @pyqtSlot()
     def run(self):
         import traceback
+        from PyQt6.QtCore import QThread
+        print(f"DEBUG: ModelLoadWorker.run() called for model '{self.model_name}'")
         self.logger.info(f"ModelLoadWorker: ENTERED run() for model '{self.model_name}' (thread: {QThread.currentThread()})")
         try:
             self.logger.info(f"ModelLoadWorker: Starting to load model '{self.model_name}'")
             
             # Unload old model
             if self.old_model:
-                self.logger.debug("ModelLoadWorker: Unloading old model")
+                print(f"DEBUG: Unloading old model '{self.old_model.name if hasattr(self.old_model, 'name') else 'unknown'}'")
+                self.logger.info(f"ModelLoadWorker: Unloading old model '{self.old_model.name if hasattr(self.old_model, 'name') else 'unknown'}'")
                 del self.old_model
                 gc.collect()
-                self.logger.debug("ModelLoadWorker: Old model unloaded and garbage collected")
+                self.logger.info(f"ModelLoadWorker: Old model unloaded and garbage collected")
+            else:
+                print(f"DEBUG: No old model to unload")
+                self.logger.info(f"ModelLoadWorker: No old model to unload")
 
             self.logger.info(f"ModelLoadWorker: About to call whisper.load_model('{self.model_name}')")
             model = whisper.load_model(self.model_name)
@@ -69,10 +75,19 @@ class ModelLoadWorker(QObject):
             self.logger.info(f"ModelLoadWorker: Emitting finished signal with model")
             self.finished.emit(model)
             self.logger.info(f"ModelLoadWorker: Finished signal emitted")
+            self.logger.info(f"ModelLoadWorker: run() method completed successfully")
         except Exception as e:
             tb = traceback.format_exc()
             self.logger.error(f"ModelLoadWorker: Failed to load model '{self.model_name}': {e}\nTraceback:\n{tb}")
             self.error.emit(str(e))
+            self.logger.info(f"ModelLoadWorker: run() method completed with error")
+        finally:
+            thread = QThread.currentThread()
+            self.logger.info(f"ModelLoadWorker: Quitting thread {thread}")
+            if isinstance(thread, QThread):
+                thread.quit()
+            else:
+                self.logger.warning("ModelLoadWorker: currentThread is not a QThread instance, cannot call quit()")
 
 class W4LMainWindow(QMainWindow):
     # Signal emitted when window is closed (but app continues running)
@@ -101,6 +116,8 @@ class W4LMainWindow(QMainWindow):
         self._setup_window_properties()
         self._create_ui()
         self._populate_model_dropdown()
+        # Connect the signal AFTER populating the dropdown to prevent initialization triggers
+        self.model_combo.currentIndexChanged.connect(self._on_model_selected)
         self._center_window()
         
         # Do NOT load the model here; will be done in showEvent
@@ -110,14 +127,25 @@ class W4LMainWindow(QMainWindow):
     
     def showEvent(self, event):
         super().showEvent(event)
+        print("showEvent called - scheduling deferred model load")
+        if self.logger:
+            self.logger.info("showEvent called - scheduling deferred model load")
         # Only trigger once
         if not hasattr(self, '_model_loaded_on_show'):
             self._model_loaded_on_show = True
             from PyQt6.QtCore import QTimer
-            QTimer.singleShot(0, self._load_model_on_startup)
+            if self.logger:
+                self.logger.info("Scheduling QTimer.singleShot for deferred model load")
+            QTimer.singleShot(0, self._deferred_model_load)
+        else:
+            if self.logger:
+                self.logger.info("Model already loaded on show, skipping deferred load")
 
-    def _load_model_on_startup(self):
-        self.state_machine.reset_to_idle()
+    def _deferred_model_load(self):
+        """Deferred model loading - ensures event loop is fully running before starting model load."""
+        if self.logger:
+            self.logger.info("Deferred model load triggered - event loop should be fully running")
+        # Get the current model name from config
         current_model_name = self.config_manager.get_config_value('transcription', 'model', 'tiny')
         self._load_whisper_model(current_model_name)
 
@@ -252,7 +280,7 @@ class W4LMainWindow(QMainWindow):
         # Add model selection dropdown
         self.model_combo = QComboBox()
         self.model_combo.setToolTip("Select transcription model")
-        self.model_combo.currentIndexChanged.connect(self._on_model_selected)
+        # Signal connection moved to after _populate_model_dropdown to prevent initialization triggers
         status_layout.addWidget(self.model_combo)
         
         # Close button
@@ -345,7 +373,11 @@ class W4LMainWindow(QMainWindow):
                 break
 
         if found_index != -1:
+            print(f"DEBUG: About to block signals and set index {found_index}")
+            self.model_combo.blockSignals(True)
             self.model_combo.setCurrentIndex(found_index)
+            self.model_combo.blockSignals(False)
+            print(f"DEBUG: Signals unblocked after setting index {found_index}")
             if self.logger:
                 self.logger.debug(f"Set dropdown to model at index {found_index}: {current_model_name}")
         else:
@@ -353,7 +385,11 @@ class W4LMainWindow(QMainWindow):
                 self.logger.warning(f"Could not find model '{current_model_name}' in dropdown, will use first available model and update config")
             # If the configured model is not available, use the first available one
             if self.model_combo.count() > 0:
+                print(f"DEBUG: About to block signals and set index 0 (fallback)")
+                self.model_combo.blockSignals(True)
                 self.model_combo.setCurrentIndex(0)
+                self.model_combo.blockSignals(False)
+                print(f"DEBUG: Signals unblocked after setting index 0")
                 first_model = self.model_combo.itemData(0)
                 if first_model:
                     # Update config to match fallback
@@ -364,36 +400,33 @@ class W4LMainWindow(QMainWindow):
     def _on_model_selected(self, index):
         if index == -1:
             return
-
         selected_model_data = self.model_combo.itemData(index)
         if not selected_model_data:
             if self.logger:
                 self.logger.warning(f"No model data found for dropdown index {index}")
             return
-
         model_name = selected_model_data['name']
         if self.logger:
             self.logger.info(f"User selected model: {model_name}")
-
         self._load_whisper_model(model_name)
 
     def _load_whisper_model(self, model_name: str):
         if self.logger:
             self.logger.info(f"Request to load model: {model_name}")
-        
+        print("DEBUG: About to call state_machine.get_state()")
         # Check if we can start model loading (only from certain states)
         current_state = self.state_machine.get_state()
-        if current_state not in [RecordingState.IDLE, RecordingState.FINISHED, RecordingState.ABORTED, RecordingState.ERROR]:
+        print(f"DEBUG: state_machine.get_state() returned {current_state}")
+        if self.logger:
+            self.logger.info(f"Current state: {current_state.name}")
+        if current_state != RecordingState.IDLE:
             if self.logger:
                 self.logger.warning(f"Cannot load model in state: {current_state.name}")
             return
-
-        # Check if there are existing load threads running
-        if self.load_threads:
-            if self.logger:
-                self.logger.warning(f"There are {len(self.load_threads)} existing load threads running")
-                for i, thread in enumerate(self.load_threads):
-                    self.logger.warning(f"Thread {i}: isRunning={thread.isRunning()}, isFinished={thread.isFinished()}")
+        # Transition to MODEL_LOADING state here
+        self.state_machine.handle_event(RecordingEvent.MODEL_LOAD_REQUESTED)
+        if self.logger:
+            self.logger.info(f"Passed state and thread checks, proceeding with model load")
 
         # Find the base model name (e.g., 'tiny.en' -> 'tiny')
         base_model_name = model_name.split('.')[0]
@@ -415,9 +448,6 @@ class W4LMainWindow(QMainWindow):
             # TODO: Revert dropdown selection to the previously loaded model
             return
 
-        # Transition to MODEL_LOADING state
-        self.state_machine.handle_event(RecordingEvent.MODEL_LOAD_REQUESTED)
-        
         if self.logger:
             self.logger.info(f"Starting model load for: {model_name}")
         
@@ -428,8 +458,8 @@ class W4LMainWindow(QMainWindow):
         if self.logger:
             self.logger.info(f"Thread and worker created, setting up connections")
         
+        # Remove direct connection from thread.started to worker.run
         thread.started.connect(worker.run)
-        thread.started.connect(lambda: self.logger.info("Thread started signal received - worker.run should be called next") if self.logger else None)
         worker.finished.connect(self._on_model_load_finished)
         worker.error.connect(self._on_model_load_error)
         
@@ -449,6 +479,8 @@ class W4LMainWindow(QMainWindow):
         
         if self.logger:
             self.logger.info(f"Thread started successfully")
+            self.logger.info(f"Thread isRunning: {thread.isRunning()}")
+            self.logger.info(f"Thread isFinished: {thread.isFinished()}")
 
     def _on_model_load_finished(self, model):
         if self.logger:
@@ -459,6 +491,20 @@ class W4LMainWindow(QMainWindow):
         if self.logger:
             model_name = self.config_manager.get_config_value('transcription', 'model')
             self.logger.info(f"Successfully loaded model: {model_name}")
+        
+        # Manual cleanup of threads as backup to thread.finished signal
+        if self.logger:
+            self.logger.info(f"_on_model_load_finished: Manual cleanup - threads before: {len(self.load_threads)}")
+        
+        # Remove any finished threads from the list
+        finished_threads = [thread for thread in self.load_threads if thread.isFinished()]
+        for thread in finished_threads:
+            if self.logger:
+                self.logger.info(f"_on_model_load_finished: Removing finished thread manually")
+            self._remove_load_thread(thread)
+        
+        if self.logger:
+            self.logger.info(f"_on_model_load_finished: Manual cleanup - threads after: {len(self.load_threads)}")
 
     def _on_model_load_error(self, error_message):
         # Transition to ERROR state (UI will be updated by state machine)
@@ -1096,10 +1142,16 @@ class W4LMainWindow(QMainWindow):
         self.instruction_label.setText("Attempting to recover from error...")
 
     def _remove_load_thread(self, thread):
+        if self.logger:
+            self.logger.info(f"_remove_load_thread: Attempting to remove thread from list (list size: {len(self.load_threads)})")
+        
         if thread in self.load_threads:
             self.load_threads.remove(thread)
             if self.logger:
-                self.logger.debug("Removed finished load thread from list")
+                self.logger.info(f"_remove_load_thread: Successfully removed thread from list (new size: {len(self.load_threads)})")
+        else:
+            if self.logger:
+                self.logger.warning(f"_remove_load_thread: Thread not found in list")
 
 if __name__ == '__main__':
     # This block is for direct testing of the main window
