@@ -310,42 +310,42 @@ For a detailed explanation of this architecture, see the **[Architecture Overvie
 ### Phase 4: Whisper Integration & Transcription
 
 #### 4.1 Whisper Setup & Model Management (Expanded)
-- 4.1.1 Integrate OpenAI Whisper library (not marked done until confirmed)
-- 4.1.2 Implement model downloading and caching
-- 4.1.3 Configure for CPU-only inference
-- 4.1.4 Test model loading and initialization (pending user confirmation)
-- 4.1.5 Implement persistent model metadata JSON:
+- [x] 4.1.1 Integrate OpenAI Whisper library (not marked done until confirmed)
+- [x] 4.1.2 Implement model downloading and caching
+- [x] 4.1.3 Configure for CPU-only inference
+- [x] 4.1.4 Test model loading and initialization (pending user confirmation)
+- [x] 4.1.5 Implement persistent model metadata JSON:
     - Track update interval, next update, per-model status, and download history
     - Do NOT track selected model in this file
-- 4.1.6 Implement background model metadata checking and update logic
-- 4.1.7 Update Model Management UI:
+- [x] 4.1.6 Implement background model metadata checking and update logic
+- [ ] 4.1.7 Update Model Management UI:
     - Always show all models, status, and actions
     - Show "Update Model" button for outdated models
     - Block update if model is currently selected; prompt user to switch first
-- 4.1.8 Refactor state machine and UI:
+- [ ] 4.1.8 Refactor state machine and UI:
     - Add MODEL_LOADING, MODEL_READY, etc.
     - UI elements (dropdown, buttons, indicators) are state-driven
     - Spinner/checkmark for model loading
     - ESC/ENTER during MODEL_LOADING only hides GUI, does not cancel loading
 
 #### 4.2 Audio Preprocessing (original, unchanged)
-- 4.2.1 Implement audio format conversion for Whisper
-- 4.2.2 Add audio normalization and filtering
-- 4.2.3 Create audio chunking for long recordings
-- 4.2.4 Optimize audio processing pipeline
+- [ ] 4.2.1 Implement audio format conversion for Whisper
+- [ ] 4.2.2 Add audio normalization and filtering
+- [ ] 4.2.3 Create audio chunking for long recordings
+- [ ] 4.2.4 Optimize audio processing pipeline
 
 #### 4.3 Transcription Engine (original, unchanged)
-- 4.3.1 Create transcription service class
-- 4.3.2 Implement async transcription processing
-- 4.3.3 Add transcription progress indicators
-- 4.3.4 Handle transcription errors and timeouts
+- [ ] 4.3.1 Create transcription service class
+- [ ] 4.3.2 Implement async transcription processing
+- [ ] 4.3.3 Add transcription progress indicators
+- [ ] 4.3.4 Handle transcription errors and timeouts
 
 #### 4.4 Model Optimization (original, unchanged)
-- 4.4.1 Implement model preloading on startup
-- 4.4.2 Add model caching for faster subsequent use
-- 4.4.3 Optimize memory usage for Whisper model
-- 4.4.4 Test transcription accuracy and speed
-- 4.4.5 **Model-Aware Memory Management** 🔄
+- [ ] 4.4.1 Implement model preloading on startup
+- [ ] 4.4.2 Add model caching for faster subsequent use
+- [ ] 4.4.3 Optimize memory usage for Whisper model
+- [ ] 4.4.4 Test transcription accuracy and speed
+- [ ] 4.4.5 **Model-Aware Memory Management** 🔄
     - 4.4.5.1 Implement dynamic memory thresholds based on model size
     - 4.4.5.2 Add model memory requirements tracking (tiny: 150MB, base: 250MB, small: 500MB, medium: 1.5GB, large: 2.5GB)
     - 4.4.5.3 Create W4LMemoryManager class for adaptive memory management

@@ -215,52 +215,33 @@ class RecordingStateMachine(QObject):
         with self._lock:
             return self._state
     
-    def handle_event(self, event: RecordingEvent, **kwargs) -> bool:
-        """
-        Handle an event and transition state if valid.
-        
-        Args:
-            event: The event to handle
-            **kwargs: Additional data for the event
-            
-        Returns:
-            True if transition was successful, False otherwise
-        """
+    def handle_event(self, event: RecordingEvent, **kwargs):
+        """Handle an event and transition to the appropriate state."""
         with self._lock:
             current_state = self._state
-            self.logger.debug(f"Handling event {event.name} in state {current_state.name}")
+            transition = self._transitions.get(current_state, {}).get(event)
             
-            # Check if transition is valid
-            if current_state not in self._transitions:
-                self.logger.error(f"No transitions defined for state {current_state.name}")
-                return False
-            
-            if event not in self._transitions[current_state]:
+            if transition:
+                old_state = current_state
+                self._state = transition.to_state
+                
+                self.logger.info(f"State transition: {old_state.name} -> {self._state.name} ({transition.description})")
+                
+                # Emit state change signal
+                self.state_changed.emit(old_state, self._state, event)
+                
+                # Call state handler
+                handler = self._state_handlers.get(self._state)
+                if handler:
+                    try:
+                        handler(event, **kwargs)
+                    except Exception as e:
+                        self.logger.error(f"Error in state handler for {self._state.name}: {e}")
+                        self.handle_event(RecordingEvent.ERROR_OCCURRED, error=e)
+            else:
                 self.logger.warning(f"Invalid event {event.name} for state {current_state.name}")
-                return False
-            
-            # Get the transition
-            transition = self._transitions[current_state][event]
-            
-            # Execute the transition
-            old_state = self._state
-            self._state = transition.to_state
-            
-            # Log the transition
-            self.logger.info(f"State transition: {old_state.name} -> {self._state.name} ({transition.description})")
-            
-            # Emit signal for UI updates
-            self.state_changed.emit(old_state, self._state, event)
-            
-            # Call state handler
-            if self._state in self._state_handlers:
-                try:
-                    self._state_handlers[self._state](event, **kwargs)
-                except Exception as e:
-                    self.logger.error(f"Error in state handler for {self._state.name}: {e}")
-                    self._handle_internal_error(e)
-            
-            return True
+                # Emit error signal for invalid transitions
+                self.error_occurred.emit(f"Invalid event {event.name} for state {current_state.name}")
     
     def _handle_idle(self, event: RecordingEvent, **kwargs):
         """Handle IDLE state."""
@@ -291,24 +272,32 @@ class RecordingStateMachine(QObject):
     
     def _handle_stopping(self, event: RecordingEvent, **kwargs):
         """Handle STOPPING state."""
+        self.logger.info(f"_handle_stopping: Entering STOPPING state with event {event.name}")
         # This handler is called when entering STOPPING state
         if event == RecordingEvent.STOP_REQUESTED and self.on_stop_recording:
             try:
+                self.logger.info("_handle_stopping: Calling on_stop_recording callback")
                 self.on_stop_recording()
+                self.logger.info("_handle_stopping: on_stop_recording callback completed")
                 # Don't call handle_event here - let the callback do it
             except Exception as e:
                 self.logger.error(f"Error stopping recording: {e}")
                 self.handle_event(RecordingEvent.ERROR_OCCURRED, error=e)
         elif event == RecordingEvent.SILENCE_DETECTED and self.on_stop_recording:
             try:
+                self.logger.info("_handle_stopping: Calling on_stop_recording callback (silence detected)")
                 self.on_stop_recording()
+                self.logger.info("_handle_stopping: on_stop_recording callback completed (silence detected)")
                 # Don't call handle_event here - let the callback do it
             except Exception as e:
                 self.logger.error(f"Error stopping recording due to silence: {e}")
                 self.handle_event(RecordingEvent.ERROR_OCCURRED, error=e)
+        else:
+            self.logger.warning(f"_handle_stopping: No on_stop_recording callback or unexpected event {event.name}")
     
     def _handle_finished(self, event: RecordingEvent, **kwargs):
         """Handle FINISHED state."""
+        self.logger.info(f"_handle_finished: Entering FINISHED state with event {event.name}")
         # Recording completed successfully
         self.logger.info("Recording completed successfully")
     

@@ -388,6 +388,13 @@ class W4LMainWindow(QMainWindow):
                 self.logger.warning(f"Cannot load model in state: {current_state.name}")
             return
 
+        # Check if there are existing load threads running
+        if self.load_threads:
+            if self.logger:
+                self.logger.warning(f"There are {len(self.load_threads)} existing load threads running")
+                for i, thread in enumerate(self.load_threads):
+                    self.logger.warning(f"Thread {i}: isRunning={thread.isRunning()}, isFinished={thread.isFinished()}")
+
         # Find the base model name (e.g., 'tiny.en' -> 'tiny')
         base_model_name = model_name.split('.')[0]
         required_memory = MODEL_MEMORY_REQ.get(base_model_name, 1 * 1024**3) # Default to 1GB
@@ -422,6 +429,7 @@ class W4LMainWindow(QMainWindow):
             self.logger.info(f"Thread and worker created, setting up connections")
         
         thread.started.connect(worker.run)
+        thread.started.connect(lambda: self.logger.info("Thread started signal received - worker.run should be called next") if self.logger else None)
         worker.finished.connect(self._on_model_load_finished)
         worker.error.connect(self._on_model_load_error)
         
@@ -533,17 +541,27 @@ class W4LMainWindow(QMainWindow):
     
     def _stop_recording(self):
         """Stop recording and process the audio."""
+        if self.logger:
+            self.logger.info("_stop_recording: Method called")
+        
         if not self.recorder:
             if self.logger:
                 self.logger.error("No audio recorder available.")
             return
         
+        if self.logger:
+            self.logger.info("_stop_recording: Stopping waveform widget")
+        
         # Stop the waveform widget
         self.waveform_widget.stop_recording()
+        
+        if self.logger:
+            self.logger.info("_stop_recording: Calling state machine handle_event(STOP_REQUESTED)")
+        
         self.state_machine.handle_event(RecordingEvent.STOP_REQUESTED)
         
         if self.logger:
-            self.logger.info("Recording stopped.")
+            self.logger.info("_stop_recording: Method completed")
 
     def _close_application(self):
         """Close the application."""
@@ -917,14 +935,29 @@ class W4LMainWindow(QMainWindow):
     
     def _state_machine_stop_recording(self):
         """Callback for state machine to stop recording."""
+        if self.logger:
+            self.logger.info("_state_machine_stop_recording: Method called")
+        
         try:
             if self.recorder:
-                self.recorder.stop()
-                self.recorder.stop_silence_detection()
                 if self.logger:
-                    self.logger.info("Recording stopped via state machine")
+                    self.logger.info("_state_machine_stop_recording: Stopping recorder")
+                self.recorder.stop()
+                
+                if self.logger:
+                    self.logger.info("_state_machine_stop_recording: Stopping silence detection")
+                self.recorder.stop_silence_detection()
+                
+                if self.logger:
+                    self.logger.info("_state_machine_stop_recording: Recording stopped via state machine")
+                
+                if self.logger:
+                    self.logger.info("_state_machine_stop_recording: Calling state machine handle_event(CLEANUP_COMPLETED)")
                 # Signal cleanup completion
                 self.state_machine.handle_event(RecordingEvent.CLEANUP_COMPLETED)
+                
+                if self.logger:
+                    self.logger.info("_state_machine_stop_recording: Method completed successfully")
         except Exception as e:
             if self.logger:
                 self.logger.error(f"Error stopping recording: {e}")
