@@ -154,6 +154,7 @@ class ModelManagerUI(QObject):
                 size_str = f'{size_mb:.1f} MB'
             display_text = f"{model['name']} ({size_str})"
             self.model_combo.addItem(display_text, userData=model)
+            print(f"DEBUG: Added to dropdown: '{display_text}' userData={model}")
             if self.logger:
                 self.logger.debug(f"Added model to dropdown: {display_text}")
             
@@ -165,6 +166,7 @@ class ModelManagerUI(QObject):
         found_index = -1
         for i in range(self.model_combo.count()):
             model_data = self.model_combo.itemData(i)
+            print(f"DEBUG: Dropdown index {i} display='{self.model_combo.itemText(i)}' userData={model_data}")
             if model_data and model_data['name'] == current_model_name:
                 found_index = i
                 break
@@ -190,6 +192,10 @@ class ModelManagerUI(QObject):
                     if self.logger:
                         self.logger.info(f"Config updated to fallback model: {first_model['name']}")
         self.model_combo.blockSignals(False)  # Unblock signals after population
+        # Print all dropdown items for debug
+        print("DEBUG: Final dropdown items:")
+        for i in range(self.model_combo.count()):
+            print(f"  Index {i}: '{self.model_combo.itemText(i)}' userData={self.model_combo.itemData(i)}")
     
     def _on_model_selected(self, index):
         """Handle model selection from dropdown."""

@@ -834,7 +834,7 @@ class W4LMainWindow(QMainWindow):
             self.state_machine.handle_event(RecordingEvent.MODEL_LOAD_COMPLETED)
         else:
             if self.logger:
-                self.logger.warning(f"MODEL_LOAD_COMPLETED ignored because state is {self.state_machine.get_state()}")
+                self.logger.debug(f"MODEL_LOAD_COMPLETED ignored because state is {self.state_machine.get_state()}")
 
     def _on_model_load_error(self, error_message: str):
         """Handle model load error signal from ModelManagerUI."""
