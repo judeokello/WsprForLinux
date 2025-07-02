@@ -318,15 +318,16 @@ For a detailed explanation of this architecture, see the **[Architecture Overvie
     - Track update interval, next update, per-model status, and download history
     - Do NOT track selected model in this file
 - [x] 4.1.6 Implement background model metadata checking and update logic
-- [ ] 4.1.7 Update Model Management UI:
-    - Always show all models, status, and actions
-    - Show "Update Model" button for outdated models
-    - Block update if model is currently selected; prompt user to switch first
-- [ ] 4.1.8 Refactor state machine and UI:
-    - Add MODEL_LOADING, MODEL_READY, etc.
-    - UI elements (dropdown, buttons, indicators) are state-driven
-    - Spinner/checkmark for model loading
-    - ESC/ENTER during MODEL_LOADING only hides GUI, does not cancel loading
+- [x] 4.1.7 Update Model Management UI:
+    - [x] Always show all models, status, and actions
+    - [x] Show "Update Model" button for outdated models
+    - [x] Block update if model is currently selected; prompt user to switch first
+- [x] 4.1.8 State machine and UI integration:
+    - [x] MODEL_LOADING state exists and works correctly
+    - [x] UI elements (dropdown, buttons, indicators) are state-driven
+    - [x] Spinner/checkmark for model loading implemented
+    - [x] ESC/ENTER during MODEL_LOADING only hides GUI, does not cancel loading
+    - [x] Direct transition from MODEL_LOADING to IDLE works efficiently
 
 #### 4.2 Audio Preprocessing (original, unchanged)
 - [ ] 4.2.1 Implement audio format conversion for Whisper

@@ -9,10 +9,7 @@ This document describes the state machine for the W4L main window, including all
   - *UI*: Status label shows "Loading model: [model name]..."; model dropdown and record button are disabled; waveform is flatline/inactive.
   - *Logging*: Log "Started loading model [model name]".
 
-- **MODEL_READY**
-  - *Description*: The model is fully loaded and ready for use.
-  - *UI*: Status label shows "Model loaded: [model name]"; model dropdown and record button are enabled; waveform is flatline.
-  - *Logging*: Log "Model loaded: [model name]".
+
 
 - **MODEL_ERROR**
   - *Description*: There was an error loading the model (download failed, checksum mismatch, etc.).
@@ -44,7 +41,7 @@ This document describes the state machine for the W4L main window, including all
 | State             | Status Label                | Dropdown | Record Btn | Waveform   | Logging/Event                |
 |-------------------|----------------------------|----------|------------|------------|------------------------------|
 | MODEL_LOADING     | Loading model: ...          | Disabled | Disabled   | Flatline   | Log start loading            |
-| MODEL_READY       | Model loaded: ...           | Enabled  | Enabled    | Flatline   | Log model loaded             |
+
 | MODEL_ERROR       | Error loading model: ...    | Enabled  | Disabled   | Flatline   | Log error                    |
 | RECORDING         | Recording...                | Disabled | Stop       | Live       | Log recording started        |
 | STOPPING_RECORDING| Processing recording...     | Disabled | Disabled   | Freeze     | Log stopping/processing      |
