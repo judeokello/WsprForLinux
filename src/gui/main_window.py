@@ -194,7 +194,7 @@ class W4LMainWindow(QMainWindow):
         # Add model selection dropdown
         self.model_combo = QComboBox()
         self.model_combo.setToolTip("Select transcription model")
-        self.model_combo.setStyleSheet(MODEL_COMBO_STYLE)
+        # self.model_combo.setStyleSheet(MODEL_COMBO_STYLE)
         
         # Close button
         self.close_button = QPushButton("×")
